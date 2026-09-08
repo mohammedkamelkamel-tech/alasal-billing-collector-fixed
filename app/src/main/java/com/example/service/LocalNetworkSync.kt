@@ -14,6 +14,7 @@ import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.squareup.moshi.Types
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.withLock
 import androidx.room.withTransaction
 import java.io.BufferedReader
 import java.io.InputStreamReader

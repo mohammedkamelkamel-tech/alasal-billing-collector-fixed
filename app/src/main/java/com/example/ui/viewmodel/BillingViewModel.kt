@@ -203,9 +203,9 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
     val meterReadings: StateFlow<List<MeterReadingEntity>> = _meterReadings.asStateFlow()
 
     val readingReminders: StateFlow<List<ReadingReminderEntity>> = repository.activeReadingReminders
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val payments: StateFlow<List<com.example.data.model.PaymentEntity>> = repository.allPayments
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** مراقبة Room بشكل مستمر، مع تحديث الواجهة فور تغيّر البيانات. */
