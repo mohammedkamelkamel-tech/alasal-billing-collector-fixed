@@ -61,6 +61,7 @@ class LocalNetworkSync(
     private val keyListAdapter = moshi.adapter<List<AccessKey>>(
         Types.newParameterizedType(List::class.java, AccessKey::class.java)
     )
+    private val accessKeyAdapter = moshi.adapter(AccessKey::class.java)
 
     @Volatile private var adminMode = false
     @Volatile private var adminHost: String? = null
@@ -74,6 +75,34 @@ class LocalNetworkSync(
     }
 
     suspend fun adminPresentOnNetwork(): Boolean = discoverAdmin() != null
+
+    suspend fun authenticateWithAdmin(secretKey: String): Pair<Boolean, String> {
+        val secret = secretKey.trim()
+        if (secret.isBlank()) return false to "الرجاء إدخال المفتاح السري"
+        val host = adminHost ?: discoverAdmin().also { adminHost = it }
+            ?: return false to "لم يتم العثور على جهاز الإدارة على الشبكة"
+        return try {
+            val response = request(host, org.json.JSONObject()
+                .put("type", "AUTHENTICATE_KEY")
+                .put("requestedSecret", secret)
+                .put("deviceId", adminDeviceSecurity.deviceId)
+                .toString())
+            val o = org.json.JSONObject(response)
+            if (!o.optBoolean("ok", false)) {
+                false to o.optString("error", "المفتاح غير مصرح به")
+            } else {
+                val authenticatedKey = o.optJSONObject("authenticatedKey")
+                    ?: return false to "لم ترسل الإدارة بيانات الحساب"
+                val key = accessKeyAdapter.fromJson(authenticatedKey.toString())
+                    ?: return false to "بيانات الحساب غير صالحة"
+                accessKeys.saveAccessKey(key)
+                true to "تم اعتماد الحساب من جهاز الإدارة"
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "Remote key authentication failed: ${e.message}")
+            false to "تعذر الاتصال بجهاز الإدارة"
+        }
+    }
 
     fun startAsAdmin() {
         if (adminMode) return
@@ -159,6 +188,27 @@ class LocalNetworkSync(
         return try {
             val o = org.json.JSONObject(request)
             if (!adminMode) return org.json.JSONObject().put("ok", false).put("error", "الجهاز غير متاح كإدارة").toString()
+
+            // تسجيل حساب فرعي لأول مرة: الجهاز الفرعي قد لا يملك المفتاح محلياً بعد.
+            // الإدارة تتحقق من المفتاح الذي أنشأته هي، ثم ترسل Snapshot يحتوي الحساب.
+            if (o.optString("type") == "AUTHENTICATE_KEY") {
+                val requestedSecret = o.optString("requestedSecret").trim()
+                val requestedDeviceId = o.optString("deviceId").trim()
+                val requestedKey = accessKeys.getAccessKeyBySecret(requestedSecret)
+                    ?: return org.json.JSONObject().put("ok", false).put("error", "المفتاح السري غير صحيح أو غير موجود في الإدارة").toString()
+                if (!requestedKey.isValid()) {
+                    return org.json.JSONObject().put("ok", false).put("error", "هذا الحساب غير فعال أو انتهت صلاحيته").toString()
+                }
+                // لا نسمح أبداً بربط مفتاح ADMIN بجهاز فرعي.
+                if (requestedKey.role.equals("ADMIN", ignoreCase = true) && requestedDeviceId != adminDeviceSecurity.deviceId) {
+                    return org.json.JSONObject().put("ok", false).put("error", "مفتاح الإدارة لا يعمل على جهاز فرعي").toString()
+                }
+                return org.json.JSONObject().apply {
+                    put("ok", true)
+                    // نرسل للحساب الجديد مفتاحه فقط، ولا نكشف مفاتيح الحسابات الأخرى.
+                    put("authenticatedKey", org.json.JSONObject(accessKeyAdapter.toJson(requestedKey)))
+                }.toString()
+            }
 
             // كل طلب شبكي يجب أن يحمل مفتاح جلسة صحيحاً. صلاحية ADMIN على الشبكة
             // مرتبطة بجهاز الإدارة المعتمد، فلا يكفي معرفة كلمة مرور ADMIN وحدها.

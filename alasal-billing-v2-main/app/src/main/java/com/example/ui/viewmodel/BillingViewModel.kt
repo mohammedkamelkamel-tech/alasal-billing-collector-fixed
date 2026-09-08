@@ -321,7 +321,20 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
      * Secret Key Login Logic via AuthRepository (محلي + مزامنة Wi‑Fi)
      */
     suspend fun loginWithSecretKey(secretKeyInput: String): Pair<Boolean, String> {
-        return when (val result = authRepository.verifySecretKey(secretKeyInput)) {
+        var result = authRepository.verifySecretKey(secretKeyInput)
+
+        // إذا كان الحساب أنشأته الإدارة ولم يصل مفتاحه لهذا الجهاز بعد،
+        // نتحقق منه مباشرة من جهاز الإدارة ثم نستورد الحساب والصلاحيات.
+        if (result !is KeyVerificationResult.Success) {
+            val remote = localNetworkSync.authenticateWithAdmin(secretKeyInput)
+            if (remote.first) {
+                result = authRepository.verifySecretKey(secretKeyInput)
+            } else if (remote.second.isNotBlank() && !remote.second.contains("لم يتم العثور")) {
+                return false to remote.second
+            }
+        }
+
+        return when (result) {
             is KeyVerificationResult.Success -> {
                 if (result.accessKey.role.equals("ADMIN", ignoreCase = true)) {
                     // جهاز جديد لا يستطيع تحويل نفسه إلى ADMIN إذا كان جهاز إدارة آخر
