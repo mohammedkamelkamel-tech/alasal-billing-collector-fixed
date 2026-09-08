@@ -1,0 +1,6 @@
+{
+  "name": "نظام فواتير الكهرباء",
+  "description": "نظام متكامل لإدارة وإصدار فواتير الكهرباء باللغة العربية مع دعم الأدوار والتقارير",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
