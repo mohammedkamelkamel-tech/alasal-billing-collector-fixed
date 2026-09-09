@@ -20,6 +20,8 @@ class LocalAccessKeyRepository(context: Context) {
     }
 
     private fun defaults(): List<AccessKey> = listOf(
+        // مفتاح الإدارة الأساسي موجود فقط كبيانات تهيئة على جهاز الإدارة.
+        // لا توجد مفاتيح محصل/محاسب افتراضية ثابتة؛ الإدارة هي التي تنشئها.
         AccessKey(
             id = "key_admin_001",
             secretKey = "SEC-ADMIN-1234",
@@ -28,43 +30,6 @@ class LocalAccessKeyRepository(context: Context) {
             permissions = PermissionCatalog.getDefaultAdminPermissions(),
             active = true,
             createdBy = "SYSTEM"
-        ),
-        AccessKey(
-            id = "key_coll_003",
-            secretKey = "SEC-COLLECTOR-5678",
-            username = "محصل الميدان",
-            role = "OPERATOR",
-            permissions = PermissionCatalog.getDefaultCollectorPermissions(),
-            active = true,
-            createdBy = "key_admin_001"
-        ),
-        AccessKey(
-            id = "key_acc_004",
-            secretKey = "SEC-ACCOUNTANT-9900",
-            username = "المحاسب",
-            role = "ACCOUNTANT",
-            permissions = PermissionCatalog.getDefaultAccountantPermissions(),
-            active = true,
-            createdBy = "key_admin_001"
-        ),
-        AccessKey(
-            id = "key_sup_002",
-            secretKey = "SEC-SUPERVISOR-7788",
-            username = "المشرف",
-            role = "SUPERVISOR",
-            permissions = PermissionCatalog.getDefaultAdminPermissions().filterNot { it == PermissionCatalog.DATA_WIPE },
-            active = true,
-            createdBy = "key_admin_001"
-        ),
-        AccessKey(
-            id = "key_exp_005",
-            secretKey = "SEC-EXPIRED-0000",
-            username = "مفتاح تجريبي منتهي الصلاحية",
-            role = "OPERATOR",
-            permissions = PermissionCatalog.getDefaultCollectorPermissions(),
-            active = true,
-            expiresAt = System.currentTimeMillis() - 3600000L,
-            createdBy = "key_admin_001"
         )
     )
 

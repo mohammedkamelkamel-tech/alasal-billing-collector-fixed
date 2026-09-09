@@ -34,7 +34,6 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
     private val repository = BillingRepository(db.userDao(), db.billDao(), db.permissionDao(), db.meterReadingDao(), db.readingReminderDao(), db.paymentDao())
     private val accessKeyRepository = LocalAccessKeyRepository(application)
     private val authRepository = AuthRepository(accessKeyRepository)
-    private val wifiSyncManager = com.example.service.WifiSyncManager(application, db, accessKeyRepository)
     
     private val _discoveredDevices = kotlinx.coroutines.flow.MutableStateFlow<List<com.example.data.model.DiscoveredDevice>>(emptyList())
     val discoveredDevices: kotlinx.coroutines.flow.StateFlow<List<com.example.data.model.DiscoveredDevice>> = _discoveredDevices
@@ -51,29 +50,37 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
     fun startDiscovery() {
         viewModelScope.launch {
             _isDiscovering.value = true
-            wifiSyncManager.startDiscovery { devices ->
-                _discoveredDevices.value = devices
+            if (currentAccessKey.value?.role == "ADMIN") {
+                // جهاز الإدارة لا يبحث عن أجهزة المحصلين ولا يزامن معهم مباشرة.
+                _discoveredDevices.value = emptyList()
+                _syncStatus.value = "جهاز الإدارة فعال. المحصلون يرسلون بياناتهم إلى الإدارة تلقائياً."
+            } else {
+                val admin = localNetworkSync.discoverAdminDevice()
+                _discoveredDevices.value = admin?.let { listOf(it) } ?: emptyList()
+                _syncStatus.value = if (admin != null) "تم العثور على جهاز الإدارة" else "لم يتم العثور على جهاز الإدارة"
             }
+            _isDiscovering.value = false
         }
     }
 
     fun stopDiscovery() {
         _isDiscovering.value = false
-        wifiSyncManager.stopDiscovery()
     }
 
     fun syncWithDevice(device: com.example.data.model.DiscoveredDevice) {
         viewModelScope.launch {
-            _syncStatus.value = "جاري المزامنة مع ${device.name}..."
-            val result = wifiSyncManager.sync(device)
-            _syncStatus.value = result.statusMessage
-            if (result.history != null) {
-                _syncHistory.value = listOf(result.history) + _syncHistory.value
+            if (currentAccessKey.value?.role == "ADMIN") {
+                _syncStatus.value = "المزامنة تبدأ من جهاز المحصل فقط؛ لا تتم مزامنة الإدارة مع محصل آخر."
+                return@launch
             }
+            _syncStatus.value = "جاري المزامنة مع جهاز الإدارة..."
+            val ok = localNetworkSync.syncNowWithAdmin()
+            _syncStatus.value = if (ok) "تمت المزامنة مع جهاز الإدارة بنجاح" else "فشل المزامنة مع جهاز الإدارة"
         }
     }
 
     private val localNetworkSync = LocalNetworkSync(application, db, accessKeyRepository)
+    private val adminDeviceSecurity = com.example.service.AdminDeviceSecurity(application)
 
     // 👈 يُعلن عند فشل آخر عملية مزامنة عبر Wi‑Fi محلية (حفظ/حذف) حتى لا يبقى الفشل صامتاً
     // كما كان سابقاً (كانت الأخطاء تُطبع في Logcat فقط دون أي إشعار).
@@ -253,7 +260,15 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
             // استعادة جلسة المفتاح محلياً. لا يوجد اعتماد على الإنترنت.
             val savedKey = prefs.getString("saved_secret_key", null)
             if (savedKey != null) {
-                loginWithSecretKey(savedKey)
+                val savedLocal = accessKeyRepository.getAccessKeyBySecret(savedKey)
+                if (savedLocal?.role.equals("ADMIN", ignoreCase = true) && !adminDeviceSecurity.isAdminDevice()) {
+                    // تنظيف أي جلسة ADMIN قديمة بقيت من نسخة سابقة على جهاز المحصل.
+                    prefs.edit().remove("saved_secret_key").apply()
+                    currentAccessKey.value = null
+                    localNetworkSync.stop()
+                } else {
+                    loginWithSecretKey(savedKey)
+                }
             }
         }
     }
@@ -322,9 +337,20 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
     suspend fun loginWithSecretKey(secretKeyInput: String): Pair<Boolean, String> {
         return when (val result = authRepository.verifySecretKey(secretKeyInput)) {
             is KeyVerificationResult.Success -> {
+                if (result.accessKey.role.equals("ADMIN", ignoreCase = true)) {
+                    // مفتاح ADMIN وحده لا يمنح أي جهاز جديد صلاحية الإدارة.
+                    // جهاز الإدارة يجب أن يكون قد تم اعتماده مسبقاً على هذا الجهاز.
+                    // لا نقوم أبداً بربط جهاز جديد تلقائياً، لأن ذلك يسمح لجوال المحصل
+                    // بالدخول كإدارة بمجرد معرفة مفتاح ADMIN.
+                    if (!adminDeviceSecurity.isAdminDevice()) {
+                        return Pair(false, "تم رفض دخول الإدارة: هذا الجهاز غير معتمد كجهاز إدارة. يجب اعتماد الجهاز من جهاز الإدارة الأصلي أولاً.")
+                    }
+                }
+
                 currentAccessKey.value = result.accessKey
+                localNetworkSync.setSessionAccessKey(result.accessKey)
                 prefs.edit().putString("saved_secret_key", secretKeyInput).apply()
-                if (result.accessKey.role == "ADMIN") {
+                if (result.accessKey.role.equals("ADMIN", ignoreCase = true)) {
                     localNetworkSync.startAsAdmin()
                 } else {
                     localNetworkSync.startAsClient()

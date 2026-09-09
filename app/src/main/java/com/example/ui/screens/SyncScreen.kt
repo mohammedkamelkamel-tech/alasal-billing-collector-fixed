@@ -28,6 +28,7 @@ fun SyncScreen(
     val isDiscovering by viewModel.isDiscovering.collectAsStateWithLifecycle()
     val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
     val syncHistory by viewModel.syncHistory.collectAsStateWithLifecycle()
+    val currentKey by viewModel.currentAccessKey.collectAsStateWithLifecycle()
     
     LaunchedEffect(Unit) {
         viewModel.startDiscovery()
@@ -64,6 +65,19 @@ fun SyncScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
+                if (currentKey?.role == "ADMIN") {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    ) {
+                        Text(
+                            "جهاز الإدارة: لا يتم عرض أو مزامنة أجهزة المحصلين مباشرة. المحصل يرسل بياناته إلى الإدارة تلقائياً عبر الشبكة المحلية.",
+                            modifier = Modifier.padding(16.dp),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -97,7 +111,7 @@ fun SyncScreen(
                 }
             }
             
-            items(discoveredDevices) { device ->
+            items(if (currentKey?.role == "ADMIN") emptyList() else discoveredDevices) { device ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),

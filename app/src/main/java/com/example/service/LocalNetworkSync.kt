@@ -66,6 +66,31 @@ class LocalNetworkSync(
     @Volatile private var adminHost: String? = null
     private var server: ServerSocket? = null
     private val paymentMutex = kotlinx.coroutines.sync.Mutex()
+    private val adminDeviceSecurity = AdminDeviceSecurity(context)
+    @Volatile private var sessionAccessKey: AccessKey? = null
+
+    fun setSessionAccessKey(key: AccessKey?) {
+        sessionAccessKey = key
+    }
+
+    suspend fun adminPresentOnNetwork(): Boolean = discoverAdmin() != null
+
+    /** اكتشاف جهاز الإدارة فقط؛ لا نعرض أجهزة المحصلين لبعضهم. */
+    suspend fun discoverAdminDevice(): com.example.data.model.DiscoveredDevice? {
+        val host = discoverAdmin() ?: return null
+        return com.example.data.model.DiscoveredDevice(
+            id = host,
+            name = "جهاز الإدارة",
+            ipAddress = host,
+            port = TCP_PORT
+        )
+    }
+
+    /** مزامنة يدوية مع الإدارة فقط. */
+    suspend fun syncNowWithAdmin(): Boolean {
+        val host = adminHost ?: discoverAdmin().also { adminHost = it } ?: return false
+        return requestSnapshot(host)
+    }
 
     fun startAsAdmin() {
         if (adminMode) return
@@ -80,6 +105,7 @@ class LocalNetworkSync(
     }
 
     fun stop() {
+        sessionAccessKey = null
         adminMode = false
         server?.close()
         server = null
@@ -149,6 +175,19 @@ class LocalNetworkSync(
     private suspend fun handleRequest(request: String): String {
         return try {
             val o = org.json.JSONObject(request)
+            if (!adminMode) return org.json.JSONObject().put("ok", false).put("error", "الجهاز غير متاح كإدارة").toString()
+
+            // كل طلب شبكي يجب أن يحمل مفتاح جلسة صحيحاً. صلاحية ADMIN على الشبكة
+            // مرتبطة بجهاز الإدارة المعتمد، فلا يكفي معرفة كلمة مرور ADMIN وحدها.
+            val authSecret = o.optString("authSecret").trim()
+            val clientDeviceId = o.optString("deviceId").trim()
+            val key = accessKeys.getAccessKeyBySecret(authSecret)
+                ?: return org.json.JSONObject().put("ok", false).put("error", "الجهاز أو مفتاح الدخول غير مصرح به").toString()
+            if (!key.isValid()) return org.json.JSONObject().put("ok", false).put("error", "مفتاح الدخول غير فعال").toString()
+            if (key.role.equals("ADMIN", ignoreCase = true) && clientDeviceId != adminDeviceSecurity.deviceId) {
+                return org.json.JSONObject().put("ok", false).put("error", "هذا الجهاز ليس جهاز الإدارة المعتمد").toString()
+            }
+
             when (o.optString("type")) {
                 "GET_SNAPSHOT" -> {
                     syncSnapshotFromJson(
@@ -271,7 +310,14 @@ class LocalNetworkSync(
     private suspend fun snapshotJson(): String {
         val users = db.userDao().getAllUsers().first()
         val bills = db.billDao().getAllBills().first()
+        val sessionIsAdmin = sessionAccessKey?.role.equals("ADMIN", ignoreCase = true)
         val keys = accessKeys.getAllLocalAccessKeys()
+            // لا نرسل مفتاح ADMIN إلى جهاز محصل إطلاقاً.
+            // المحصل لا يحتاجه ولا يجب أن يستطيع تخزينه أو استخدامه.
+            .filterNot { it.role.equals("ADMIN", ignoreCase = true) && !sessionIsAdmin }
+            .map { key ->
+                if (key.role.equals("ADMIN", ignoreCase = true) && key.id != sessionAccessKey?.id) key.copy(secretKey = "") else key
+            }
         val readings = db.meterReadingDao().getAll().first()
         val payments = db.paymentDao().getAll().first()
         return org.json.JSONObject().apply {
@@ -337,8 +383,13 @@ class LocalNetworkSync(
 
     private suspend fun sendOperation(payload: String): Boolean {
         val host = adminHost ?: discoverAdmin().also { adminHost = it } ?: return false
+        val key = sessionAccessKey ?: return false
         return try {
-            val response = request(host, payload)
+            val securedPayload = org.json.JSONObject(payload).apply {
+                put("authSecret", key.secretKey)
+                put("deviceId", adminDeviceSecurity.deviceId)
+            }.toString()
+            val response = request(host, securedPayload)
             val ok = org.json.JSONObject(response).optBoolean("ok", false)
             if (!ok) return false
             applySnapshot(response)
@@ -359,11 +410,16 @@ class LocalNetworkSync(
             }
         }
 
-    private suspend fun requestSnapshot(host: String) {
+    private suspend fun requestSnapshot(host: String): Boolean {
         try {
-            val response = request(host, org.json.JSONObject().put("type", "GET_SNAPSHOT").toString())
+            val key = sessionAccessKey ?: return false
+            val response = request(host, org.json.JSONObject()
+                .put("type", "GET_SNAPSHOT")
+                .put("authSecret", key.secretKey)
+                .put("deviceId", adminDeviceSecurity.deviceId)
+                .toString())
             val remote = org.json.JSONObject(response)
-            if (!remote.optBoolean("ok")) return
+            if (!remote.optBoolean("ok")) return false
 
             // إذا كان هناك إيصال محفوظ على جهاز المحصل ولم يصل للإدارة بعد،
             // أرسله كعملية مستقلة قبل اعتماد snapshot الإدارة. هذا يمنع ضياع
@@ -380,9 +436,30 @@ class LocalNetworkSync(
             } else {
                 applySnapshot(response)
             }
+
+            // بعد استلام بيانات الإدارة، أعد إرسال السجلات الموجودة محلياً
+            // والتي قد تكون أُنشئت أثناء انقطاع الشبكة. بهذه الطريقة لا يعتمد
+            // النظام على نجاح عملية الحفظ الأولى فقط.
+            val remoteUsers = userListAdapter.fromJson(remote.optJSONArray("users")?.toString() ?: "[]").orEmpty()
+            val remoteBills = billListAdapter.fromJson(remote.optJSONArray("bills")?.toString() ?: "[]").orEmpty()
+            val remoteReadings = readingListAdapter.fromJson(remote.optJSONArray("readings")?.toString() ?: "[]").orEmpty()
+
+            val localUsers = db.userDao().getAllUsers().first()
+            val missingUsers = localUsers.filter { local -> remoteUsers.none { it.id == local.id } }
+            missingUsers.forEach { saveUser(it) }
+
+            val localBills = db.billDao().getAllBills().first()
+            val missingBills = localBills.filter { local -> remoteBills.none { it.id == local.id } }
+            missingBills.forEach { saveBill(it) }
+
+            val localReadings = db.meterReadingDao().getAll().first()
+            val missingReadings = localReadings.filter { local -> remoteReadings.none { it.id == local.id } }
+            missingReadings.forEach { saveMeterReading(it) }
         } catch (e: Exception) {
             Log.d(TAG, "Snapshot failed: ${e.message}")
+            return false
         }
+        return true
     }
 
     private suspend fun applySnapshot(response: String) {
@@ -395,19 +472,63 @@ class LocalNetworkSync(
         val readings = readingListAdapter.fromJson(o.optJSONArray("readings")?.toString() ?: "[]").orEmpty()
         val payments = paymentListAdapter.fromJson(o.optJSONArray("payments")?.toString() ?: "[]").orEmpty()
 
-        db.userDao().deleteAllUsers()
-        db.billDao().deleteAllBills()
-        db.meterReadingDao().deleteAll()
-        users.takeIf { it.isNotEmpty() }?.let { db.userDao().insertUsers(it) }
-        bills.takeIf { it.isNotEmpty() }?.let { db.billDao().insertBills(it) }
-        readings.takeIf { it.isNotEmpty() }?.let { db.meterReadingDao().insertAll(it) }
-        // سجل الإيصالات append-only: لا نحذف عمليات محلية عند استقبال snapshot،
-        // لأن إيصالاً محلياً قد يكون في انتظار إعادة المزامنة. التعارض يحسمه id.
-        payments.takeIf { it.isNotEmpty() }?.let { db.paymentDao().insertAll(it) }
-        val currentKeys = accessKeys.getAllLocalAccessKeys()
-        currentKeys.filter { local -> keys.none { it.id == local.id } }
-            .forEach { accessKeys.deleteAccessKey(it.id) }
-        keys.forEach { accessKeys.saveAccessKey(it) }
+        // مهم: لا نستبدل قاعدة بيانات المحصل بالكامل بالـsnapshot.
+        // الحذف الجماعي كان سبباً في اختفاء بيانات أُنشئت على المحصل أثناء
+        // انقطاع الشبكة قبل أن تصل إلى الإدارة. نستخدم Merge آمن بدلاً منه.
+        users.forEach { remote ->
+            val local = db.userDao().getUserById(remote.id)
+            if (local == null) {
+                db.userDao().insertUser(remote)
+            }
+            // إذا كان السجل موجوداً، تبقى نسخة المحصل المحلية؛ تعديلات المشترك
+            // تُرسل للإدارة عبر UPSERT_USER عند دورة المزامنة التالية.
+        }
+
+        bills.forEach { remote ->
+            val local = db.billDao().getBillById(remote.id)
+            when {
+                local == null -> db.billDao().insertBill(remote)
+                remote.paymentAt > local.paymentAt ||
+                    (remote.paymentAt == local.paymentAt && remote.paidAmount > local.paidAmount) -> {
+                    // الدفع مصدره الإدارة، لذلك نأخذ حالة السداد الأحدث فقط.
+                    db.billDao().insertBill(remote)
+                }
+                remote.createdAt > local.createdAt && remote.paymentAt <= local.paymentAt -> {
+                    // بيانات فاتورة أحدث دون الرجوع للخلف في السداد.
+                    db.billDao().insertBill(remote.copy(
+                        paidAmount = local.paidAmount,
+                        remainingAmount = local.remainingAmount,
+                        status = local.status,
+                        paymentDate = local.paymentDate,
+                        paymentMethod = local.paymentMethod,
+                        paymentCollector = local.paymentCollector,
+                        paymentAt = local.paymentAt
+                    ))
+                }
+            }
+        }
+
+        readings.forEach { remote ->
+            if (db.meterReadingDao().getAll().first().none { it.id == remote.id }) {
+                db.meterReadingDao().insert(remote)
+            }
+        }
+
+        // سجل الإيصالات append-only: لا نحذف إيصالات محلية معلقة.
+        payments.forEach { remote -> db.paymentDao().insert(remote) }
+
+        // لا نحذف مفاتيح محلية تلقائياً؛ قد يكون هناك مفتاح جديد أُنشئ محلياً
+        // أثناء انقطاع الشبكة وسيتم إرساله للإدارة.
+        keys.forEach { remote ->
+            // لا تسمح أبداً بإدخال مفتاح ADMIN إلى مخزن مفاتيح جهاز غير ADMIN.
+            if (remote.role.equals("ADMIN", ignoreCase = true) && !adminDeviceSecurity.isAdminDevice()) return@forEach
+            val local = accessKeys.getAllLocalAccessKeys().firstOrNull { it.id == remote.id }
+            if (local == null) {
+                accessKeys.saveAccessKey(remote)
+            } else if (remote.secretKey.isNotBlank() && remote.secretKey != local.secretKey) {
+                accessKeys.saveAccessKey(remote)
+            }
+        }
     }
 
     private object JSONObjectPayload {
