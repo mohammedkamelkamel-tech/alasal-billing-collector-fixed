@@ -261,10 +261,12 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
             val savedKey = prefs.getString("saved_secret_key", null)
             if (savedKey != null) {
                 val savedLocal = accessKeyRepository.getAccessKeyBySecret(savedKey)
+                // حماية إضافية: أي جلسة ADMIN محفوظة من إصدار قديم تُمسح فوراً
+                // على جهاز غير معتمد، قبل أن تظهر واجهة الإدارة ولو للحظات.
                 if (savedLocal?.role.equals("ADMIN", ignoreCase = true) && !adminDeviceSecurity.isAdminDevice()) {
-                    // تنظيف أي جلسة ADMIN قديمة بقيت من نسخة سابقة على جهاز المحصل.
                     prefs.edit().remove("saved_secret_key").apply()
                     currentAccessKey.value = null
+                    localNetworkSync.setSessionAccessKey(null)
                     localNetworkSync.stop()
                 } else {
                     loginWithSecretKey(savedKey)
