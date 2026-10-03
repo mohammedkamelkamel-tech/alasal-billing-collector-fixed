@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Payment
+import androidx.compose.material.icons.filled.WhatsApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,7 +26,8 @@ fun CollectionScreen(
     bills: List<BillEntity>,
     payments: List<PaymentEntity>,
     canPerformAction: (String) -> Boolean,
-    onPayClick: (BillEntity, Double, String) -> Unit
+    onPayClick: (BillEntity, Double, String) -> Unit,
+    onWhatsAppClick: (BillEntity) -> Unit
 ) {
     var selectedBill by remember { mutableStateOf<BillEntity?>(null) }
 
@@ -91,11 +93,18 @@ fun CollectionScreen(
                                 Text("المحصّل سابقاً: ${CurrencyFormatter.riyal(bill.paidAmount)}", style = MaterialTheme.typography.labelSmall)
                             }
                         }
-                        if (canPerformAction(PermissionCatalog.PAYMENTS_COLLECT) || canPerformAction(PermissionKeys.CAN_PAY_BILL)) {
-                            Button(onClick = { selectedBill = bill }) {
-                                Icon(Icons.Filled.Payment, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            OutlinedButton(onClick = { onWhatsAppClick(bill) }) {
+                                Icon(Icons.Filled.WhatsApp, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("تحصيل")
+                                Text("واتساب")
+                            }
+                            if (canPerformAction(PermissionCatalog.PAYMENTS_COLLECT) || canPerformAction(PermissionKeys.CAN_PAY_BILL)) {
+                                Button(onClick = { selectedBill = bill }) {
+                                    Icon(Icons.Filled.Payment, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("تحصيل")
+                                }
                             }
                         }
                     }
