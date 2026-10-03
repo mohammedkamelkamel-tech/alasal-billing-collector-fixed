@@ -357,6 +357,11 @@ class MainActivity : ComponentActivity() {
                                         },
                                         // تعديل الفاتورة متاح للمسؤول فقط، وغير ذلك تظهر رسالة "ليس لديك صلاحية"
                                         canEdit = viewModel.canEditBills(),
+                                        onWhatsAppClick = {
+                                            if (!WhatsAppHelper.sendInvoice(this@MainActivity, bill)) {
+                                                Toast.makeText(this@MainActivity, "تعذّر فتح WhatsApp للعميل", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
                                         onEditClick = { navController.navigate("add_edit_bill") },
                                         onDeleteClick = { b ->
                                             viewModel.deleteBill(b)
@@ -379,9 +384,9 @@ class MainActivity : ComponentActivity() {
                                     viewModel.addMeterReading(uid, name, current, date, notes, image)
                                     Toast.makeText(this@MainActivity, "تم حفظ قراءة العداد", Toast.LENGTH_SHORT).show()
                                 },
-                                onUpdateReading = { id, current, date, notes, image ->
-                                    viewModel.updateMeterReading(id, current, date, notes, image)
-                                    Toast.makeText(this@MainActivity, "تم تعديل قراءة العداد", Toast.LENGTH_SHORT).show()
+                                onUpdateReading = { id, previous, current, date, notes, image ->
+                                    viewModel.updateMeterReading(id, previous, current, date, notes, image)
+                                    Toast.makeText(this@MainActivity, "تم تعديل قراءة العداد وتحديث الفاتورة المرتبطة", Toast.LENGTH_SHORT).show()
                                 },
                                 onCancel = { navController.popBackStack() }
                             )
