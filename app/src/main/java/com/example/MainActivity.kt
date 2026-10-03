@@ -213,6 +213,11 @@ class MainActivity : ComponentActivity() {
                                         navController.navigate("bill_details")
                                     },
                                     onAddBillClick = { viewModel.selectedBill.value = null; navController.navigate("add_edit_bill") },
+                                    onWhatsAppClick = { bill ->
+                                        if (!WhatsAppHelper.sendInvoice(this@MainActivity, bill)) {
+                                            Toast.makeText(this@MainActivity, "تعذّر فتح WhatsApp للعميل", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
                                     // الدفع الجزئي: يُمرَّر المبلغ المدفوع فعلياً من نافذة الدفع
                                     onPayClick = { bill, amount, method ->
                                         viewModel.payBill(bill.id, amount, method,
@@ -238,6 +243,11 @@ class MainActivity : ComponentActivity() {
                                     bills = bills,
                                     payments = payments,
                                     canPerformAction = { key -> viewModel.canPerformAction(key) },
+                                    onWhatsAppClick = { bill ->
+                                        if (!WhatsAppHelper.sendInvoice(this@MainActivity, bill)) {
+                                            Toast.makeText(this@MainActivity, "تعذّر فتح WhatsApp للعميل", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
                                     onPayClick = { bill, amount, method ->
                                         viewModel.payBill(bill.id, amount, method,
                                             onCompleted = { updatedBill, paidAmount, paidMethod ->
