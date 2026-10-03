@@ -31,7 +31,7 @@ fun MeterReadingScreen(
     readings: List<MeterReadingEntity> = emptyList(),
     lastReadingFor: (String) -> Double,
     onSaveReading: (String, String, Double, String, String, String?) -> Unit,
-    onUpdateReading: (String, Double, String, String, String?) -> Unit = { _, _, _, _, _ -> },
+    onUpdateReading: (String, Double, Double, String, String, String?) -> Unit = { _, _, _, _, _, _ -> },
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current
@@ -130,7 +130,8 @@ fun MeterReadingScreen(
                         if (current == null || current < 0) return@Button
                         val editId = editingReadingId
                         if (editId != null) {
-                            onUpdateReading(editId, current, dateText, notes, imageUri?.toString())
+                            val edited = readings.firstOrNull { it.id == editId }
+                            onUpdateReading(editId, edited?.previousReading ?: 0.0, current, dateText, notes, imageUri?.toString())
                             editingReadingId = null
                         } else {
                             onSaveReading(u.id, u.name, current, dateText, notes, imageUri?.toString())
