@@ -140,6 +140,7 @@ fun DashboardScreen(
             }
         }
     }
+    }
 }
 
 @Composable
