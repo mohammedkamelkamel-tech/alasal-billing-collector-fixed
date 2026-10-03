@@ -32,6 +32,7 @@ fun BillDetailsScreen(
     bill: BillEntity,
     onBackClick: () -> Unit,
     onPayClick: (BillEntity, Double, String) -> Unit,
+    onWhatsAppClick: () -> Unit = {},
     onEditClick: (BillEntity) -> Unit,
     onDeleteClick: (BillEntity) -> Unit,
     canEdit: Boolean = false // 👈 صلاحية تعديل الفاتورة (المسؤول فقط)
@@ -362,6 +363,16 @@ fun BillDetailsScreen(
                         Text("صورة", maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                     }
                     
+                    OutlinedButton(
+                        onClick = onWhatsAppClick,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(imageVector = Icons.Filled.WhatsApp, contentDescription = "إرسال واتساب")
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("واتساب", maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    }
+
                     OutlinedButton(
                         onClick = {
                             com.example.utils.PrintHelper.printBill(context, bill)
