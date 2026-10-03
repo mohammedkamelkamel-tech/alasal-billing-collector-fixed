@@ -40,7 +40,8 @@ fun BillingScreen(
     onFilterChange: (String) -> Unit,
     onBillClick: (BillEntity) -> Unit,
     onAddBillClick: () -> Unit,
-    onPayClick: (BillEntity, Double, String) -> Unit
+    onPayClick: (BillEntity, Double, String) -> Unit,
+    onWhatsAppClick: (BillEntity) -> Unit
 ) {
     // نافذة الدفع الجزئي للفاتورة المحددة
     var payingBill by remember { mutableStateOf<BillEntity?>(null) }
@@ -236,7 +237,8 @@ fun BillingScreen(
                                 canPay = canPerformAction(PermissionKeys.CAN_PAY_BILL),
                                 onClick = { onBillClick(bill) },
                                 onPayClick = { payingBill = bill },
-                                onPrintClick = { com.example.utils.PrintHelper.printBill(context, bill) }
+                                onPrintClick = { com.example.utils.PrintHelper.printBill(context, bill) },
+                                onWhatsAppClick = { onWhatsAppClick(bill) }
                             )
                         }
                     }
@@ -354,7 +356,8 @@ fun DetailedBillCard(
     canPay: Boolean,
     onClick: () -> Unit,
     onPayClick: () -> Unit,
-    onPrintClick: () -> Unit
+    onPrintClick: () -> Unit,
+    onWhatsAppClick: () -> Unit
 ) {
     val statusEnum = BillStatus.fromString(bill.status)
 
@@ -443,6 +446,16 @@ fun DetailedBillCard(
                     Icon(imageVector = Icons.Filled.Visibility, contentDescription = "التفاصيل", modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("التفاصيل", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+                }
+
+                OutlinedButton(
+                    onClick = onWhatsAppClick,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(imageVector = Icons.Filled.WhatsApp, contentDescription = "واتساب", modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("واتساب", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                 }
 
                 OutlinedButton(
