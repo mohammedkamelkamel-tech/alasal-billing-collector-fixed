@@ -570,6 +570,31 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /** تعديل قراءة محفوظة مع الحفاظ على القراءة السابقة المسجلة معها. */
+    fun updateMeterReading(
+        readingId: String,
+        currentReading: Double,
+        readingDate: String,
+        notes: String,
+        imageUri: String?
+    ) {
+        viewModelScope.launch {
+            val old = meterReadings.value.firstOrNull { it.id == readingId }
+                ?: return@launch
+            val updated = old.copy(
+                currentReading = currentReading,
+                readingDate = readingDate,
+                notes = notes,
+                imageUri = imageUri,
+                readerName = currentAccessKey.value?.username ?: old.readerName
+            )
+            repository.updateMeterReading(updated)
+            _refreshMeterReadingsFromDb()
+            val synced = localNetworkSync.saveMeterReading(updated)
+            lastSyncError.value = if (synced) null else "تعذّرت مزامنة تعديل قراءة العداد عبر شبكة Wi‑Fi المحلية"
+        }
+    }
+
     fun addBill(
         userId: String,
         userName: String,
@@ -580,13 +605,14 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         readingDate: String,
         notes: String,
         unitPrice: Double = 170.0,
-        readingImageUri: String? = null
+        readingImageUri: String? = null,
+        onSaved: (BillEntity) -> Unit = {}
     ) {
         viewModelScope.launch {
             val effectivePrev = if (prevReading > 0.0) prevReading else repository.getLastReadingForUser(userId)
-            // السعر يؤخذ من بطاقة المشترك نفسها، ولا يعتمد على إدخال المحصل.
-            val subscriber = repository.getUserById(userId)
-            val effectiveUnitPrice = subscriber?.unitPrice?.takeIf { it > 0.0 } ?: unitPrice
+            // سعر الكيلو الذي يصل من شاشة الفاتورة هو السعر المعتمد لهذه الفاتورة.
+            // الشاشة تبدأ افتراضياً بسعر المشترك، لكن يمكن تعديله قبل الحفظ.
+            val effectiveUnitPrice = unitPrice.coerceAtLeast(0.0)
             val consumption = (currentReading - effectivePrev).coerceAtLeast(0.0)
             val subtotal = consumption * effectiveUnitPrice
 
@@ -662,6 +688,54 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
             } catch (e: Exception) {
                 android.util.Log.e("BillingViewModel", "Notification send error: ${e.message}")
             }
+            onSaved(bill)
+        }
+    }
+
+    /** تعديل فاتورة محفوظة: تحديث القراءة والسعر وإعادة حساب الاستهلاك والإجمالي والمتبقي. */
+    fun updateBill(
+        billId: String,
+        prevReading: Double,
+        currentReading: Double,
+        readingDate: String,
+        notes: String,
+        unitPrice: Double,
+        readingImageUri: String?
+    ) {
+        viewModelScope.launch {
+            val old = repository.getBillById(billId) ?: return@launch
+            val effectivePrev = prevReading.coerceAtLeast(0.0)
+            val effectivePrice = unitPrice.coerceAtLeast(0.0)
+            val consumption = (currentReading - effectivePrev).coerceAtLeast(0.0)
+            val subtotal = consumption * effectivePrice
+            val total = (subtotal + old.previousDebt).coerceAtLeast(0.0)
+            val paid = old.paidAmount.coerceAtLeast(0.0)
+            val remaining = total - paid
+            val status = when {
+                remaining <= 0.0 -> BillStatus.PAID.name
+                paid > 0.0 -> BillStatus.PARTIAL.name
+                else -> BillStatus.UNPAID.name
+            }
+            val updated = old.copy(
+                prevReading = effectivePrev,
+                currentReading = currentReading,
+                consumptionKwh = consumption,
+                unitPrice = effectivePrice,
+                subtotalAmount = subtotal,
+                totalAmount = total,
+                remainingAmount = remaining,
+                status = status,
+                issueDate = readingDate.ifBlank { old.issueDate },
+                dueDate = dueDateFrom(readingDate.ifBlank { old.issueDate }),
+                readingDate = readingDate.ifBlank { old.readingDate },
+                notes = notes,
+                readingImageUri = readingImageUri,
+                createdAt = old.createdAt
+            )
+            repository.updateBill(updated)
+            refreshDataNow()
+            selectedBill.value = updated
+            localNetworkSync.saveBill(updated)
         }
     }
 
@@ -700,7 +774,12 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
      *   المتبقي = 0  -> مدفوعة
      *   المتبقي > 0  -> مدفوعة جزئياً (يُحفظ المتبقي كمتأخرات)
      */
-    fun payBill(billId: String, amountPaid: Double, method: String = "نقدي") {
+    fun payBill(
+        billId: String,
+        amountPaid: Double,
+        method: String = "نقدي",
+        onCompleted: (BillEntity, Double, String) -> Unit = { _, _, _ -> }
+    ) {
         viewModelScope.launch {
             if (amountPaid <= 0.0) return@launch
             val beforeBill = repository.getBillById(billId) ?: return@launch
@@ -738,6 +817,7 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
                 // مزامنة العملية نفسها، وليس حالة فاتورة قديمة من جهاز المحصل.
                 val synced = localNetworkSync.registerPayment(payment)
                 lastSyncError.value = if (synced) null else "تعذّرت مزامنة إيصال التحصيل مع الإدارة؛ سيبقى محفوظاً على الجهاز حتى تتوفر المزامنة"
+                onCompleted(updatedBill, amountPaid, method)
             }
         }
     }
