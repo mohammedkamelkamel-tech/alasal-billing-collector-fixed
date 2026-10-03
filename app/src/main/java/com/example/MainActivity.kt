@@ -190,7 +190,7 @@ class MainActivity : ComponentActivity() {
                                 canPerformAction = { key -> viewModel.canPerformAction(key) },
                                 bills = bills,
                                 users = users,
-                                onAddBillClick = { navController.navigate("add_edit_bill") },
+                                onAddBillClick = { viewModel.selectedBill.value = null; navController.navigate("add_edit_bill") },
                                 onBillClick = { bill ->
                                     viewModel.selectBill(bill)
                                     navController.navigate("bill_details")
@@ -212,7 +212,7 @@ class MainActivity : ComponentActivity() {
                                         viewModel.selectBill(bill)
                                         navController.navigate("bill_details")
                                     },
-                                    onAddBillClick = { navController.navigate("add_edit_bill") },
+                                    onAddBillClick = { viewModel.selectedBill.value = null; navController.navigate("add_edit_bill") },
                                     // الدفع الجزئي: يُمرَّر المبلغ المدفوع فعلياً من نافذة الدفع
                                     onPayClick = { bill, amount, method ->
                                         viewModel.payBill(bill.id, amount, method,
