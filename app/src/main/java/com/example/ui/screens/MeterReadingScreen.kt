@@ -166,16 +166,21 @@ fun MeterReadingScreen(
                             Text("السابقة: " + reading.previousReading.toInt() + "  ←  الحالية: " + reading.currentReading.toInt())
                             Text("التاريخ: " + reading.readingDate, style = MaterialTheme.typography.labelSmall)
                         }
-                        IconButton(onClick = {
-                            editingReadingId = reading.id
-                            selectedUser = users.firstOrNull { it.id == reading.userId } ?: selectedUser
-                            readingText = reading.currentReading.toString()
-                            dateText = reading.readingDate
-                            notes = reading.notes
-                            imageUri = reading.imageUri?.let { Uri.parse(it) }
-                            showUsers = false
-                        }) {
-                            Icon(Icons.Filled.Edit, contentDescription = "تعديل القراءة")
+                        OutlinedButton(
+                            onClick = {
+                                editingReadingId = reading.id
+                                selectedUser = users.firstOrNull { it.id == reading.userId } ?: selectedUser
+                                readingText = reading.currentReading.toString()
+                                dateText = reading.readingDate
+                                notes = reading.notes
+                                imageUri = reading.imageUri?.let { Uri.parse(it) }
+                                showUsers = false
+                            },
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Filled.Edit, contentDescription = "تعديل القراءة", modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(5.dp))
+                            Text("تعديل القراءة")
                         }
                     }
                 }
