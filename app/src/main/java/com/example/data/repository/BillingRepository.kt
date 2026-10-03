@@ -56,6 +56,7 @@ class BillingRepository(
 
     suspend fun insertBill(bill: BillEntity): Unit = billDao.insertBill(bill)
     suspend fun insertMeterReading(reading: MeterReadingEntity) = meterReadingDao.insert(reading)
+    suspend fun updateMeterReading(reading: MeterReadingEntity) = meterReadingDao.update(reading)
     suspend fun insertReadingReminder(reminder: ReadingReminderEntity) = readingReminderDao.insert(reminder)
     suspend fun completeReadingReminder(id: String) = readingReminderDao.complete(id)
     suspend fun deleteReadingReminder(id: String) = readingReminderDao.delete(id)
