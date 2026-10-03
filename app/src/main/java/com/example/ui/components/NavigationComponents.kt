@@ -108,6 +108,116 @@ fun AppTopBar(
         com.example.utils.NotificationHelper.getNotifications()
     }
 
+ge com.example.ui.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.ElectricBolt
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Button
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.People
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.Receipt
+import androidx.compose.material.icons.outlined.VpnKey
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.example.data.model.AccessKey
+import com.example.data.model.PermissionCatalog
+import com.example.data.model.PermissionKeys
+import com.example.data.model.RoleType
+import com.example.data.model.UserProfile
+import com.example.ui.theme.SoftShadow
+
+enum class ScreenTab(
+    val route: String,
+    val titleAr: String,
+    val filledIcon: ImageVector,
+    val outlinedIcon: ImageVector
+) {
+    HOME("home", "الرئيسية", Icons.Filled.Home, Icons.Outlined.Home),
+    BILLS("bills", "الفواتير", Icons.Filled.Receipt, Icons.Outlined.Receipt),
+    COLLECTION("collection", "التحصيل", Icons.Filled.AccountBalanceWallet, Icons.Outlined.AccountBalanceWallet),
+    USERS("users", "المشتركين", Icons.Filled.People, Icons.Outlined.People),
+    REPORTS("reports", "التقارير", Icons.Filled.BarChart, Icons.Outlined.BarChart)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppTopBar(
+    title: String,
+    currentUserProfile: UserProfile,
+    currentAccessKey: AccessKey?,
+    allAccessKeys: List<AccessKey>,
+    onSelectAccessKey: (AccessKey) -> Unit,
+    darkTheme: Boolean,
+    onThemeToggle: () -> Unit,
+    onProfileClick: () -> Unit,
+    onCheckDueDatesClick: () -> Unit = {},
+    showBackButton: Boolean = false,
+    onBackClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {}
+) {
+    // صلاحية إظهار قائمة تبديل الحسابات: فقط لمدير النظام (ADMIN) أو المشرف الرئيسية
+    val isAdmin: Boolean = currentAccessKey?.role == "ADMIN" || currentUserProfile.roleType == RoleType.SUPERVISOR
+    var showNotificationsDialog by remember { mutableStateOf(false) }
+    val notificationsList = remember(showNotificationsDialog) {
+        com.example.utils.NotificationHelper.getNotifications()
+    }
+
     TopAppBar(
         title = {
             Column {
