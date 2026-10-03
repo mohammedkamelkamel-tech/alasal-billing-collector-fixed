@@ -306,7 +306,12 @@ class MainActivity : ComponentActivity() {
                                     onUpdateUser = { updatedUser ->
                                         viewModel.updateUser(updatedUser)
                                     },
-                                    bills = bills
+                                    bills = bills,
+                                    onUpdateUnitPriceForEveryone = { newPrice ->
+                                        viewModel.updateUnitPriceForEveryone(newPrice) { count ->
+                                            Toast.makeText(this@MainActivity, "تم تحديث سعر الكيلو إلى $newPrice ريال وإعادة حساب $count فاتورة", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
                                 )
                             }
 
