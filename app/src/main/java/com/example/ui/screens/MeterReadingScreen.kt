@@ -143,7 +143,6 @@ fun MeterReadingScreen(
                 }
             }
         }
-    }
 
         item {
             // سجل القراءات المحفوظة مع إمكانية تصحيح القراءة الخاطئة.
@@ -180,6 +179,7 @@ fun MeterReadingScreen(
                     }
                 }
             }
+        }
         }
     }
 
