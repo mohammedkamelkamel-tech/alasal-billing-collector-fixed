@@ -59,7 +59,7 @@ fun DashboardScreen(
             contentDescription = null,
             modifier = Modifier
                 .fillMaxSize()
-                .alpha(0.055f),
+                .alpha(0.14f),
             contentScale = ContentScale.Inside
         )
         LazyColumn(
@@ -162,7 +162,7 @@ private fun DashboardStatCard(title: String, value: String, icon: ImageVector, c
     Card(
         modifier = modifier.heightIn(min = 112.dp),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
@@ -240,7 +240,7 @@ fun BillSummaryCard(bill: BillEntity, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).testTag("bill_card_${bill.invoiceNumber}"),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
