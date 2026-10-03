@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.example.data.model.MeterReadingEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -20,6 +21,9 @@ interface MeterReadingDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(readings: List<MeterReadingEntity>)
+
+    @Update
+    suspend fun update(reading: MeterReadingEntity)
 
     @Query("DELETE FROM meter_readings")
     suspend fun deleteAll()
