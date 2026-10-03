@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.model.UserEntity
+import com.example.data.model.MeterReadingEntity
 import com.example.ui.theme.ElectricBlue
 import java.text.SimpleDateFormat
 import java.util.*
@@ -27,8 +28,10 @@ import java.util.*
 @Composable
 fun MeterReadingScreen(
     users: List<UserEntity>,
+    readings: List<MeterReadingEntity> = emptyList(),
     lastReadingFor: (String) -> Double,
     onSaveReading: (String, String, Double, String, String, String?) -> Unit,
+    onUpdateReading: (String, Double, String, String, String?) -> Unit = { _, _, _, _, _ -> },
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current
@@ -39,6 +42,7 @@ fun MeterReadingScreen(
     var dateText by remember { mutableStateOf(SimpleDateFormat("dd/MM/yyyy", Locale.US).format(Date())) }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var editingReadingId by remember { mutableStateOf<String?>(null) }
 
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
         if (ok) imageUri = tempCameraUri
@@ -58,8 +62,13 @@ fun MeterReadingScreen(
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
         item {
-            Text("قراءة العداد", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
-            Text("تسجيل القراءة فقط، ويمكن إصدار الفاتورة لاحقاً من شاشة إضافة فاتورة.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (editingReadingId == null) "قراءة العداد" else "تعديل قراءة العداد", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+            Text(
+                if (editingReadingId == null) "تسجيل القراءة مع إمكانية تصحيحها لاحقاً."
+                else "عدّل القراءة الحالية ثم احفظ التعديل.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
         item {
             Text("المشترك", fontWeight = FontWeight.Bold)
@@ -78,7 +87,8 @@ fun MeterReadingScreen(
             }
         }
         item {
-            val previous = selectedUser?.let { lastReadingFor(it.id) } ?: 0.0
+            val editing = readings.firstOrNull { it.id == editingReadingId }
+            val previous = editing?.previousReading ?: (selectedUser?.let { lastReadingFor(it.id) } ?: 0.0)
             OutlinedTextField(
                 value = previous.toInt().toString(), onValueChange = {}, readOnly = true,
                 label = { Text("القراءة السابقة") }, modifier = Modifier.fillMaxWidth(),
@@ -118,9 +128,56 @@ fun MeterReadingScreen(
                         val u = selectedUser ?: return@Button
                         val current = readingText.toDoubleOrNull()
                         if (current == null || current < 0) return@Button
-                        onSaveReading(u.id, u.name, current, dateText, notes, imageUri?.toString())
+                        val editId = editingReadingId
+                        if (editId != null) {
+                            onUpdateReading(editId, current, dateText, notes, imageUri?.toString())
+                            editingReadingId = null
+                        } else {
+                            onSaveReading(u.id, u.name, current, dateText, notes, imageUri?.toString())
+                        }
                     }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue)
-                ) { Icon(Icons.Filled.Save, contentDescription = null); Spacer(Modifier.width(5.dp)); Text("حفظ القراءة") }
+                ) {
+                    Icon(Icons.Filled.Save, contentDescription = null)
+                    Spacer(Modifier.width(5.dp))
+                    Text(if (editingReadingId == null) "حفظ القراءة" else "حفظ التعديل")
+                }
+            }
+        }
+    }
+
+    // سجل القراءات المحفوظة مع إمكانية تصحيح القراءة الخاطئة.
+    if (readings.isNotEmpty()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("سجل القراءات", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+            readings.sortedByDescending { it.createdAt }.take(20).forEach { reading ->
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(reading.userName, fontWeight = FontWeight.Bold)
+                            Text("السابقة: " + reading.previousReading.toInt() + "  ←  الحالية: " + reading.currentReading.toInt())
+                            Text("التاريخ: " + reading.readingDate, style = MaterialTheme.typography.labelSmall)
+                        }
+                        IconButton(onClick = {
+                            editingReadingId = reading.id
+                            selectedUser = users.firstOrNull { it.id == reading.userId } ?: selectedUser
+                            readingText = reading.currentReading.toString()
+                            dateText = reading.readingDate
+                            notes = reading.notes
+                            imageUri = reading.imageUri?.let { Uri.parse(it) }
+                            showUsers = false
+                        }) {
+                            Icon(Icons.Filled.Edit, contentDescription = "تعديل القراءة")
+                        }
+                    }
+                }
             }
         }
     }
