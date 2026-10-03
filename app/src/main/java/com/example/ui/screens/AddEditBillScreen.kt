@@ -103,7 +103,7 @@ fun AddEditBillScreen(
             prevReadingText = lastReadingFor(uid).toInt().toString()
             arrears = arrearsFor(uid)
             unitPriceText = (users.firstOrNull { it.id == uid }?.unitPrice ?: 170.0).toString()
-        } else {
+        } else if (existingBill == null) {
             prevReadingText = "0"
             arrears = 0.0
         }
