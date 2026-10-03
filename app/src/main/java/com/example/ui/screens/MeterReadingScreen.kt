@@ -145,7 +145,8 @@ fun MeterReadingScreen(
         }
     }
 
-    // سجل القراءات المحفوظة مع إمكانية تصحيح القراءة الخاطئة.
+        item {
+            // سجل القراءات المحفوظة مع إمكانية تصحيح القراءة الخاطئة.
     if (readings.isNotEmpty()) {
         Column(
             modifier = Modifier
