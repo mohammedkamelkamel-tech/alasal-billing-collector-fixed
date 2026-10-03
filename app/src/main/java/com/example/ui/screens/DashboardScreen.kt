@@ -112,7 +112,7 @@ fun DashboardScreen(
                 QuickAction(
                     title = "التحصيل",
                     icon = Icons.Filled.Payments,
-                    color = Color(0xFFFF9800),
+                    color = HoneyGold,
                     modifier = Modifier.weight(1f),
                     enabled = true,
                     onClick = {}
@@ -151,7 +151,7 @@ private fun SummaryGrid(totalUsers: Int, totalBills: Int, collected: Double, out
             DashboardStatCard("إجمالي الفواتير", totalBills.toString(), Icons.Filled.ReceiptLong, VibrantGreen, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            DashboardStatCard("المحصل", CurrencyFormatter.riyal(collected), Icons.Filled.Payments, Color(0xFFFF9800), Modifier.weight(1f))
+            DashboardStatCard("المحصل", CurrencyFormatter.riyal(collected), Icons.Filled.Payments, HoneyGold, Modifier.weight(1f))
             DashboardStatCard("المتبقي", CurrencyFormatter.riyal(outstanding), Icons.Filled.AccountBalanceWallet, ErrorRed, Modifier.weight(1f))
         }
     }
