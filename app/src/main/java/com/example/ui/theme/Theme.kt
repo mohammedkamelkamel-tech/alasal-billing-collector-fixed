@@ -38,7 +38,7 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = ElectricBlue,
+    primary = HoneyGold,
     onPrimary = Color.White,
     primaryContainer = HoneyGoldContainer,
     onPrimaryContainer = HoneyGoldDark,
