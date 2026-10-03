@@ -924,6 +924,14 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
             localNetworkSync.saveUser(user)
         }
     }
+
+    fun updateUnitPriceForEveryone(newPrice: Double, onCompleted: (Int) -> Unit = {}) {
+        viewModelScope.launch {
+            val count = repository.updateUnitPriceForEveryone(newPrice)
+            refreshDataNow()
+            onCompleted(count)
+        }
+    }
     override fun onCleared() {
         localNetworkSync.stop()
         super.onCleared()
