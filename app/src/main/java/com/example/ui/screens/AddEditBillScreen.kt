@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import androidx.core.content.FileProvider
 import com.example.data.model.UserEntity
+import com.example.data.model.BillEntity
 import com.example.utils.CurrencyFormatter
 import com.example.ui.theme.ElectricBlue
 import com.example.ui.theme.VibrantGreen
@@ -55,6 +56,7 @@ fun AddEditBillScreen(
     users: List<UserEntity>,
     lastReadingFor: (String) -> Double,
     arrearsFor: (String) -> Double,
+    existingBill: BillEntity? = null,
     onSaveBill: (
         userId: String,
         userName: String,
@@ -67,29 +69,40 @@ fun AddEditBillScreen(
         unitPrice: Double,
         readingImageUri: String?
     ) -> Unit,
+    onUpdateBill: (
+        billId: String,
+        prevReading: Double,
+        currentReading: Double,
+        date: String,
+        notes: String,
+        unitPrice: Double,
+        readingImageUri: String?
+    ) -> Unit = { _, _, _, _, _, _, _ -> },
     onCancel: () -> Unit
 ) {
-    var selectedUser by remember { mutableStateOf(users.firstOrNull()) }
+    var selectedUser by remember { mutableStateOf(users.firstOrNull { it.id == existingBill?.userId } ?: users.firstOrNull()) }
     var showUserSelectDialog by remember { mutableStateOf(false) }
     var userSearchQuery by remember { mutableStateOf("") }
 
     // القراءة السابقة تُجلب تلقائياً من آخر قراءة محفوظة للمشترك ولا يُدخلها المستخدم
-    var prevReadingText by remember { mutableStateOf("0") }
-    var currentReadingText by remember { mutableStateOf("") }
+    var prevReadingText by remember { mutableStateOf(existingBill?.prevReading?.toString() ?: "0") }
+    var currentReadingText by remember { mutableStateOf(existingBill?.currentReading?.toString() ?: "") }
+    var unitPriceText by remember { mutableStateOf(existingBill?.unitPrice?.toString() ?: (selectedUser?.unitPrice ?: 170.0).toString()) }
     // تاريخ اليوم تلقائياً مع إبقاء إمكانية تعديله يدوياً عبر التقويم
     var readingDateText by remember {
-        mutableStateOf(SimpleDateFormat("dd/MM/yyyy", Locale.US).format(Date()))
+        mutableStateOf(existingBill?.issueDate?.ifBlank { null } ?: SimpleDateFormat("dd/MM/yyyy", Locale.US).format(Date()))
     }
-    var notesText by remember { mutableStateOf("") }
+    var notesText by remember { mutableStateOf(existingBill?.notes ?: "") }
     // المتأخرات السابقة للمشترك المحدد
-    var arrears by remember { mutableStateOf(0.0) }
+    var arrears by remember { mutableStateOf(existingBill?.previousDebt ?: 0.0) }
 
     // عند اختيار المشترك: جلب آخر قراءة + المتأخرات تلقائياً
     LaunchedEffect(selectedUser?.id) {
         val uid = selectedUser?.id
-        if (uid != null) {
+        if (uid != null && existingBill == null) {
             prevReadingText = lastReadingFor(uid).toInt().toString()
             arrears = arrearsFor(uid)
+            unitPriceText = (users.firstOrNull { it.id == uid }?.unitPrice ?: 170.0).toString()
         } else {
             prevReadingText = "0"
             arrears = 0.0
@@ -116,7 +129,7 @@ fun AddEditBillScreen(
     val prevNum = prevReadingText.toDoubleOrNull() ?: 0.0
     val currNum = currentReadingText.toDoubleOrNull() ?: 0.0
     val consumption = (currNum - prevNum).coerceAtLeast(0.0)
-    val unitPrice = selectedUser?.unitPrice ?: 170.0
+    val unitPrice = unitPriceText.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
     val subtotal = consumption * unitPrice
     // لا توجد أي ضريبة: الإجمالي = قيمة الاستهلاك + المتأخرات
     val totalAmount = subtotal + arrears
@@ -143,7 +156,7 @@ fun AddEditBillScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "إصدار / إضافة فاتورة جديدة",
+            text = if (existingBill == null) "إصدار / إضافة فاتورة جديدة" else "تعديل الفاتورة",
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
             color = MaterialTheme.colorScheme.onSurface
         )
@@ -155,7 +168,7 @@ fun AddEditBillScreen(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-                .clickable { showUserSelectDialog = true }
+                .clickable(enabled = existingBill == null) { showUserSelectDialog = true }
                 .testTag("user_select_box"),
             color = MaterialTheme.colorScheme.surface
         ) {
@@ -187,7 +200,18 @@ fun AddEditBillScreen(
             }
         }
 
-        // Price per kWh (سعر الكيلو - تحديد يدوي)
+        // سعر الكيلو: قابل للتعديل قبل حفظ الفاتورة، وكذلك عند تعديل فاتورة قديمة.
+        OutlinedTextField(
+            value = unitPriceText,
+            onValueChange = { unitPriceText = it },
+            label = { Text("سعر الكيلو (ريال) *") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("unit_price_input"),
+            shape = RoundedCornerShape(12.dp),
+            leadingIcon = { Icon(Icons.Filled.Payments, contentDescription = "سعر الكيلو") }
+        )
 
         // Meter Readings
         Row(
@@ -196,9 +220,9 @@ fun AddEditBillScreen(
         ) {
             OutlinedTextField(
                 value = prevReadingText,
-                onValueChange = { },
-                readOnly = true,
-                enabled = false,
+                onValueChange = { if (existingBill != null) prevReadingText = it },
+                readOnly = existingBill == null,
+                enabled = true,
                 label = { Text("القراءة السابقة (تلقائية)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier
@@ -393,19 +417,32 @@ fun AddEditBillScreen(
                 onClick = {
                     val user = selectedUser
                     if (user != null) {
-                        onSaveBill(
-                            user.id,
-                            user.name,
-                            user.phone,
-                            user.address,
-                            prevNum,
-                            currNum,
-                            readingDateText,
-                            notesText,
-                            unitPrice,
-                            imageUri?.toString()
-                        )
-                        Toast.makeText(context, "تم حفظ الفاتورة بسعر المشترك ${unitPrice.toInt()} ريال/ك.و.س بنجاح", Toast.LENGTH_SHORT).show()
+                        if (existingBill == null) {
+                            onSaveBill(
+                                user.id,
+                                user.name,
+                                user.phone,
+                                user.address,
+                                prevNum,
+                                currNum,
+                                readingDateText,
+                                notesText,
+                                unitPrice,
+                                imageUri?.toString()
+                            )
+                            Toast.makeText(context, "تم حفظ الفاتورة بسعر " + unitPrice.toInt() + " ريال/ك.و.س بنجاح", Toast.LENGTH_SHORT).show()
+                        } else {
+                            onUpdateBill(
+                                existingBill.id,
+                                prevNum,
+                                currNum,
+                                readingDateText,
+                                notesText,
+                                unitPrice,
+                                imageUri?.toString() ?: existingBill.readingImageUri
+                            )
+                            Toast.makeText(context, "تم تعديل الفاتورة وإعادة الحساب بنجاح", Toast.LENGTH_SHORT).show()
+                        }
                     } else {
                         Toast.makeText(context, "يرجى اختيار المشترك أولاً", Toast.LENGTH_SHORT).show()
                     }
@@ -419,7 +456,7 @@ fun AddEditBillScreen(
             ) {
                 Icon(imageVector = Icons.Filled.Save, contentDescription = "حفظ")
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("حفظ الفاتورة")
+                Text(if (existingBill == null) "حفظ الفاتورة" else "حفظ التعديل")
             }
 
             OutlinedButton(
