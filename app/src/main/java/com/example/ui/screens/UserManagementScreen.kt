@@ -47,6 +47,7 @@ fun UserManagementScreen(
     onToggleUserStatus: (String, Boolean) -> Unit,
     onDeleteUser: (UserEntity) -> Unit,
     onUpdateUser: (UserEntity) -> Unit = {},
+    onUpdateUnitPriceForEveryone: (Double) -> Unit = {},
     // 👈 فواتير النظام: تُستخدم لحساب المستحقات لكل مشترك وتحديثها تلقائياً
     bills: List<BillEntity> = emptyList()
 ) {
@@ -54,6 +55,8 @@ fun UserManagementScreen(
     var editingUser by remember { mutableStateOf<UserEntity?>(null) }
     var showEditUserDialog by remember { mutableStateOf(false) }
     var detailsUser by remember { mutableStateOf<UserEntity?>(null) }
+    var globalUnitPrice by remember { mutableStateOf("") }
+    var showGlobalPriceDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     /**
@@ -121,6 +124,15 @@ fun UserManagementScreen(
             )
 
             Spacer(modifier = Modifier.height(12.dp))
+
+            if (canManageUsers) {
+                OutlinedButton(onClick = { showGlobalPriceDialog = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                    Icon(Icons.Filled.PublishedWithChanges, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("تحديث سعر الكيلو للجميع")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             // شريط فلاتر أفقي بدون خيار "مشرف"
             Row(
@@ -201,6 +213,21 @@ fun UserManagementScreen(
                 user = u,
                 stats = statsByUser[u.id] ?: SubscriberStats(),
                 onDismiss = { detailsUser = null }
+            )
+        }
+
+        if (showGlobalPriceDialog) {
+            AlertDialog(
+                onDismissRequest = { showGlobalPriceDialog = false },
+                title = { Text("تحديث سعر الكيلو للجميع", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("سيتم تغيير السعر لجميع المشتركين وإعادة حساب إجمالي الفواتير حسب الاستهلاك.")
+                        OutlinedTextField(value = globalUnitPrice, onValueChange = { globalUnitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } }, label = { Text("السعر الجديد للكيلو") }, suffix = { Text("ريال") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    }
+                },
+                confirmButton = { Button(onClick = { globalUnitPrice.toDoubleOrNull()?.takeIf { it >= 0.0 }?.let { price -> onUpdateUnitPriceForEveryone(price); showGlobalPriceDialog = false; globalUnitPrice = "" } }) { Text("تحديث البيانات للجميع") } },
+                dismissButton = { OutlinedButton(onClick = { showGlobalPriceDialog = false }) { Text("إلغاء") } }
             )
         }
 
