@@ -97,6 +97,27 @@ class BillingRepository(
 
     suspend fun insertUser(user: UserEntity): Unit = userDao.insertUser(user)
     suspend fun updateUser(user: UserEntity) = userDao.updateUser(user)
+
+    suspend fun updateUnitPriceForEveryone(newPrice: Double): Int {
+        val price = newPrice.coerceAtLeast(0.0)
+        val allUsersList = allUsers.first()
+        allUsersList.forEach { userDao.updateUser(it.copy(unitPrice = price)) }
+        val allBillsList = allBills.first()
+        var count = 0
+        allBillsList.filter { it.status != "CARRIED" }.forEach { bill ->
+            val subtotal = bill.consumptionKwh.coerceAtLeast(0.0) * price
+            val total = (subtotal + bill.previousDebt).coerceAtLeast(0.0)
+            val remaining = (total - bill.paidAmount).coerceAtLeast(0.0)
+            val status = when {
+                remaining <= 0.0 -> "PAID"
+                bill.paidAmount > 0.0 -> "PARTIAL"
+                else -> "UNPAID"
+            }
+            billDao.updateBill(bill.copy(unitPrice = price, subtotalAmount = subtotal, totalAmount = total, remainingAmount = remaining, status = status))
+            count++
+        }
+        return count
+    }
     suspend fun deleteUser(user: UserEntity) = userDao.deleteUser(user)
     suspend fun updateUserStatus(id: String, isActive: Boolean) = userDao.updateUserStatus(id, isActive)
 
