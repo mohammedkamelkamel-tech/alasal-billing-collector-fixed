@@ -24,6 +24,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.ui.components.AppBottomNavigation
 import com.example.ui.components.AppTopBar
+import com.example.ui.components.AppWatermarkBackground
 import com.example.ui.screens.*
 import com.example.ui.theme.ElectricityBillingTheme
 import com.example.ui.viewmodel.BillingViewModel
@@ -129,6 +130,7 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
                     topBar = {
                         if (showTopBar) {
                             AppTopBar(
@@ -166,6 +168,8 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 ) { innerPadding ->
+                    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+                        AppWatermarkBackground()
                     NavHost(
                         navController = navController,
                         startDestination = if (currentAccessKey == null) "login" else "home",
@@ -446,6 +450,7 @@ composable("profile") {
                                 )
                             }
                         }
+                    }
                     }
                 }
             }
