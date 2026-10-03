@@ -75,21 +75,27 @@ object WhatsAppHelper {
 
     fun openWhatsApp(context: Context, phone: String, message: String): Boolean {
         val normalized = normalizeYemenPhone(phone) ?: return false
-        val uri = Uri.parse("https://wa.me/${normalized}?text=${Uri.encode(message)}")
+        val encoded = Uri.encode(message)
+        val intents = listOf(
+            Uri.parse("whatsapp://send?phone=${normalized}&text=${encoded}"),
+            Uri.parse("https://wa.me/${normalized}?text=${encoded}")
+        )
         val packages = listOf("com.whatsapp", "com.whatsapp.w4b")
 
-        for (pkg in packages) {
-            try {
-                val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-                    setPackage(pkg)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        for (uri in intents) {
+            for (pkg in packages) {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                        setPackage(pkg)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                    return true
+                } catch (_: ActivityNotFoundException) {
+                    // جرّب الرابط/الحزمة التالية.
+                } catch (_: Exception) {
+                    // لا نوقف حفظ الفاتورة بسبب مشكلة في فتح WhatsApp.
                 }
-                context.startActivity(intent)
-                return true
-            } catch (_: ActivityNotFoundException) {
-                // جرّب WhatsApp Business ثم انتقل للتطبيق التالي.
-            } catch (_: Exception) {
-                // لا نوقف حفظ الفاتورة بسبب مشكلة في فتح WhatsApp.
             }
         }
         return false
