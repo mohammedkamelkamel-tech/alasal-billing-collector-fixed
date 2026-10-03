@@ -573,6 +573,7 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
     /** تعديل قراءة محفوظة مع الحفاظ على القراءة السابقة المسجلة معها. */
     fun updateMeterReading(
         readingId: String,
+        previousReading: Double,
         currentReading: Double,
         readingDate: String,
         notes: String,
@@ -582,6 +583,7 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
             val old = meterReadings.value.firstOrNull { it.id == readingId }
                 ?: return@launch
             val updated = old.copy(
+                previousReading = previousReading,
                 currentReading = currentReading,
                 readingDate = readingDate,
                 notes = notes,
@@ -589,6 +591,41 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
                 readerName = currentAccessKey.value?.username ?: old.readerName
             )
             repository.updateMeterReading(updated)
+
+            // تصحيح القراءة ينعكس تلقائياً على الفاتورة المرتبطة.
+            val linkedBill = repository.getBillsForUserOnce(old.userId)
+                .filter { it.status != BillStatus.CARRIED.name }
+                .filter { it.prevReading == old.previousReading && it.currentReading == old.currentReading }
+                .maxByOrNull { it.createdAt }
+
+            if (linkedBill != null) {
+                val correctedConsumption = (currentReading - previousReading).coerceAtLeast(0.0)
+                val correctedSubtotal = correctedConsumption * linkedBill.unitPrice
+                val correctedNetTotal = correctedSubtotal + linkedBill.previousDebt
+                val correctedTotal = correctedNetTotal.coerceAtLeast(0.0)
+                val correctedRemaining = correctedTotal - linkedBill.paidAmount
+                val correctedStatus = when {
+                    correctedRemaining <= 0.0 -> BillStatus.PAID.name
+                    linkedBill.paidAmount > 0.0 -> BillStatus.PARTIAL.name
+                    else -> BillStatus.UNPAID.name
+                }
+                val correctedBill = linkedBill.copy(
+                    prevReading = previousReading,
+                    currentReading = currentReading,
+                    consumptionKwh = correctedConsumption,
+                    subtotalAmount = correctedSubtotal,
+                    totalAmount = correctedTotal,
+                    remainingAmount = correctedRemaining,
+                    status = correctedStatus,
+                    readingDate = readingDate,
+                    issueDate = if (linkedBill.issueDate.isBlank()) readingDate else linkedBill.issueDate,
+                    notes = notes.ifBlank { linkedBill.notes },
+                    readingImageUri = imageUri ?: linkedBill.readingImageUri
+                )
+                repository.updateBill(correctedBill)
+                localNetworkSync.saveBill(correctedBill)
+            }
+
             _refreshMeterReadingsFromDb()
             val synced = localNetworkSync.saveMeterReading(updated)
             lastSyncError.value = if (synced) null else "تعذّرت مزامنة تعديل قراءة العداد عبر شبكة Wi‑Fi المحلية"
