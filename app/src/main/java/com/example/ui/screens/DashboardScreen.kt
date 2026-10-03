@@ -3,6 +3,7 @@ package com.example.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,6 +17,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.example.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -26,6 +30,7 @@ import com.example.data.model.RoleType
 import com.example.data.model.UserEntity
 import com.example.data.model.UserProfile
 import com.example.ui.theme.ElectricBlue
+import com.example.ui.theme.HoneyGold
 import com.example.ui.theme.ErrorRed
 import com.example.ui.theme.VibrantGreen
 import com.example.ui.theme.WarningYellow
@@ -47,8 +52,17 @@ fun DashboardScreen(
     val collected = bills.sumOf { it.paidAmount }
     val outstanding = bills.sumOf { it.remainingAmount.coerceAtLeast(0.0) }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+    Box(Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(id = R.drawable.ic_watermark),
+            contentDescription = null,
+            modifier = Modifier
+                .fillMaxSize()
+                .alpha(0.055f),
+            contentScale = ContentScale.Inside
+        )
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -79,20 +93,20 @@ fun DashboardScreen(
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 QuickAction(
+                    title = "فاتورة جديدة",
+                    icon = Icons.Filled.ReceiptLong,
+                    color = HoneyGold,
+                    modifier = Modifier.weight(1f),
+                    enabled = canPerformAction(PermissionKeys.CAN_ADD_BILL),
+                    onClick = onAddBillClick
+                )
+                QuickAction(
                     title = "قراءة العداد",
                     icon = Icons.Filled.ElectricMeter,
                     color = ElectricBlue,
                     modifier = Modifier.weight(1f),
                     enabled = canPerformAction(PermissionKeys.CAN_ADD_BILL),
                     onClick = onMeterReadingClick
-                )
-                QuickAction(
-                    title = "فاتورة جديدة",
-                    icon = Icons.Filled.ReceiptLong,
-                    color = VibrantGreen,
-                    modifier = Modifier.weight(1f),
-                    enabled = canPerformAction(PermissionKeys.CAN_ADD_BILL),
-                    onClick = onAddBillClick
                 )
                 QuickAction(
                     title = "التحصيل",
