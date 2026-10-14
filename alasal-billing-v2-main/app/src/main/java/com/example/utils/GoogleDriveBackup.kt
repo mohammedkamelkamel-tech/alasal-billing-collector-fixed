@@ -25,7 +25,6 @@ object GoogleDriveBackup {
     const val KEY_API_ENABLED = "backup_drive_api_enabled"
     const val KEY_FOLDER_ID = "backup_drive_folder_id"
     private const val SCOPE = "https://www.googleapis.com/auth/drive.file"
-    private const val FOLDER_NAME = "محطة العسل"
     const val KEY_LAST_ERROR = "backup_drive_last_error"
 
     private fun saveError(context: Context, message: String) {
@@ -56,9 +55,8 @@ object GoogleDriveBackup {
         try {
             if (!file.exists() || file.length() <= 0L) return@withContext false
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val folderId = ensureFolder(token, prefs.getString(KEY_FOLDER_ID, null)) ?: return@withContext false
-        prefs.edit().putString(KEY_FOLDER_ID, folderId).apply()
-        val existingId = findFile(token, folderId, fileName)
+        // Store backups in the Drive root; no folder creation is needed.
+        val existingId = findFileInRoot(token, fileName)
         if (existingId != null) {
             val req = Request.Builder()
                 .url("https://www.googleapis.com/upload/drive/v3/files/$existingId?uploadType=media")
@@ -70,8 +68,7 @@ object GoogleDriveBackup {
                 response.isSuccessful
             }
         } else {
-            val metadata = JSONObject().put("name", fileName).put("mimeType", "application/zip")
-                .put("parents", org.json.JSONArray().put(folderId)).toString()
+            val metadata = JSONObject().put("name", fileName).put("mimeType", "application/zip").toString()
                 .toRequestBody("application/json; charset=utf-8".toMediaType())
             // Drive API multipart uploads require multipart/related, not multipart/form-data.
             val body = MultipartBody.Builder()
@@ -104,37 +101,21 @@ object GoogleDriveBackup {
         }
     }
 
-    private fun ensureFolder(token: String, savedId: String?): String? {
-        if (!savedId.isNullOrBlank()) {
-            val check = Request.Builder().url("https://www.googleapis.com/drive/v3/files/$savedId?fields=id,mimeType")
-                .header("Authorization", "Bearer $token").get().build()
-            client.newCall(check).execute().use { response ->
-                if (response.isSuccessful && JSONObject(response.body?.string().orEmpty())
-                        .optString("mimeType") == "application/vnd.google-apps.folder") return savedId
-            }
-        }
-        val body = JSONObject().put("name", FOLDER_NAME)
-            .put("mimeType", "application/vnd.google-apps.folder").toString()
-            .toRequestBody("application/json; charset=utf-8".toMediaType())
-        val req = Request.Builder().url("https://www.googleapis.com/drive/v3/files?fields=id,name")
-            .header("Authorization", "Bearer $token").post(body).build()
-        client.newCall(req).execute().use { response ->
-            if (!response.isSuccessful) return null
-            return JSONObject(response.body?.string().orEmpty()).optString("id").takeIf { it.isNotBlank() }
-        }
-    }
-
-    private fun findFile(token: String, folderId: String, fileName: String): String? {
+    private fun findFileInRoot(token: String, fileName: String): String? {
         val escaped = fileName.replace("\\", "\\\\").replace("'", "\\'")
-        val q = "name = '$escaped' and '$folderId' in parents and trashed = false"
+        val q = "name = '$escaped' and 'root' in parents and trashed = false"
         val encoded = URLEncoder.encode(q, StandardCharsets.UTF_8.name())
         val req = Request.Builder()
             .url("https://www.googleapis.com/drive/v3/files?q=$encoded&fields=files(id,name)&pageSize=10")
             .header("Authorization", "Bearer $token").get().build()
         client.newCall(req).execute().use { response ->
-            if (!response.isSuccessful) return null
+            if (!response.isSuccessful) {
+                android.util.Log.w("GoogleDriveBackup", "Drive search failed: HTTP ${response.code}")
+                return null
+            }
             val files = JSONObject(response.body?.string().orEmpty()).optJSONArray("files") ?: return null
             return if (files.length() > 0) files.getJSONObject(0).optString("id").takeIf { it.isNotBlank() } else null
         }
     }
+
 }
