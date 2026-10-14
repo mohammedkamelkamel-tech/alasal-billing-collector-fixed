@@ -151,12 +151,22 @@ class MainActivity : ComponentActivity() {
                             AppBottomNavigation(
                                 currentRoute = currentRoute,
                                 onNavigateTo = { tab ->
-                                    navController.navigate(tab.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
+                                    if (tab == com.example.ui.components.ScreenTab.HOME) {
+                                        // زر الرئيسية يجب أن يعود مباشرة إلى الواجهة الرئيسية من أي شاشة
+                                        // بما فيها شاشة التحصيل التي فُتحت من الوصول السريع.
+                                        navController.navigate("home") {
+                                            popUpTo("home") { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = false
                                         }
-                                        launchSingleTop = true
-                                        restoreState = true
+                                    } else {
+                                        navController.navigate(tab.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
                                     }
                                 },
                                 currentUserProfile = currentUserProfile,
