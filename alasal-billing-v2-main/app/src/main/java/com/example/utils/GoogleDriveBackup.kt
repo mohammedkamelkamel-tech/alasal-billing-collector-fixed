@@ -75,7 +75,7 @@ object GoogleDriveBackup {
                 .toRequestBody("application/json; charset=utf-8".toMediaType())
             // Drive API multipart uploads require multipart/related, not multipart/form-data.
             val body = MultipartBody.Builder()
-                .setType("multipart/related".toMediaType())
+                .setType(MultipartBody.MIXED)
                 .addPart(
                     Headers.headersOf("Content-Type", "application/json; charset=UTF-8"),
                     metadata
@@ -87,7 +87,9 @@ object GoogleDriveBackup {
                 .build()
             val req = Request.Builder()
                 .url("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name")
-                .header("Authorization", "Bearer $token").post(body).build()
+                .header("Authorization", "Bearer $token")
+                .header("Content-Type", "multipart/related; boundary=${body.boundary}")
+                .post(body).build()
             client.newCall(req).execute().use { response ->
                 val responseBody = response.peekBody(2048).string()
                 android.util.Log.i("GoogleDriveBackup", "Create backup: HTTP ${response.code}; body=$responseBody")
