@@ -52,16 +52,23 @@ class AutoBackupWorker(appContext: Context, workerParams: WorkerParameters) : Co
             localSaved = saveToTree(context, Uri.parse(localUri), persistentFile, fileName)
         }
 
-        val driveUri = prefs.getString(KEY_DRIVE_TREE_URI, null)
-        if (!driveUri.isNullOrBlank()) {
-            driveSaved = saveToTree(context, Uri.parse(driveUri), persistentFile, fileName)
+        val driveApiEnabled = prefs.getBoolean(GoogleDriveBackup.KEY_API_ENABLED, false)
+        if (driveApiEnabled) {
+            driveSaved = GoogleDriveBackup.uploadBackup(context, persistentFile, fileName)
+        } else {
+            // Keep compatibility with the previously selected Google Drive folder.
+            val driveUri = prefs.getString(KEY_DRIVE_TREE_URI, null)
+            if (!driveUri.isNullOrBlank()) {
+                driveSaved = saveToTree(context, Uri.parse(driveUri), persistentFile, fileName)
+            }
         }
 
         tempFile.delete()
 
-        // النسخة الداخلية تبقى محفوظة دائماً. أعد المحاولة إذا كان المستخدم قد ربط Drive
-        // وفشل الرفع، حتى يعيد WorkManager المحاولة لاحقاً.
-        if (!driveUri.isNullOrBlank() && !driveSaved) return Result.retry()
+        // Keep the internal copy even if Drive is temporarily unavailable; retry cloud upload.
+        if ((driveApiEnabled || !prefs.getString(KEY_DRIVE_TREE_URI, null).isNullOrBlank()) && !driveSaved) {
+            return Result.retry()
+        }
         return if (persistentFile.exists() && persistentFile.length() > 0L) Result.success() else Result.retry()
     }
 
