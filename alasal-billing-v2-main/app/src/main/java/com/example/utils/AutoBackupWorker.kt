@@ -30,30 +30,39 @@ class AutoBackupWorker(appContext: Context, workerParams: WorkerParameters) : Co
         val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
         val fileName = "العسل - $date.zip"
 
-        // إنشاء النسخة أولاً في ملف مؤقت داخل مساحة التطبيق، ثم نسخها إلى الوجهات.
+        // حفظ نسخة دائمة داخل مساحة التطبيق أولاً حتى لا تضيع النسخة إذا فشل Drive أو لم يُحدد مجلد.
+        val backupDir = File(context.filesDir, "backups").apply { if (!exists()) mkdirs() }
         val tempFile = File(context.cacheDir, fileName)
+        val persistentFile = File(backupDir, fileName)
         val created = BackupHelper.createBackupFile(context, tempFile)
-        if (!created) return Result.retry()
+        if (!created || !tempFile.exists() || tempFile.length() <= 0L) return Result.retry()
+
+        try {
+            tempFile.copyTo(persistentFile, overwrite = true)
+        } catch (_: Exception) {
+            tempFile.delete()
+            return Result.retry()
+        }
 
         var localSaved = false
         var driveSaved = false
 
         val localUri = prefs.getString(KEY_LOCAL_TREE_URI, null)
         if (!localUri.isNullOrBlank()) {
-            localSaved = saveToTree(context, Uri.parse(localUri), tempFile, fileName)
+            localSaved = saveToTree(context, Uri.parse(localUri), persistentFile, fileName)
         }
 
         val driveUri = prefs.getString(KEY_DRIVE_TREE_URI, null)
         if (!driveUri.isNullOrBlank()) {
-            driveSaved = saveToTree(context, Uri.parse(driveUri), tempFile, fileName)
+            driveSaved = saveToTree(context, Uri.parse(driveUri), persistentFile, fileName)
         }
 
-        // لا نحتفظ بالنسخ اليومية داخل مساحة التطبيق؛ هذا كان سبب عدم معرفة المستخدم بمكانها.
         tempFile.delete()
 
-        // إذا اختار المستخدم وجهة واحدة على الأقل، نعتبر العملية ناجحة.
-        // إذا لم يحدد أي وجهة، نعيد المحاولة حتى لا يضيع النسخ بصمت.
-        return if (localSaved || driveSaved) Result.success() else Result.retry()
+        // النسخة الداخلية تبقى محفوظة دائماً. أعد المحاولة إذا كان المستخدم قد ربط Drive
+        // وفشل الرفع، حتى يعيد WorkManager المحاولة لاحقاً.
+        if (!driveUri.isNullOrBlank() && !driveSaved) return Result.retry()
+        return if (persistentFile.exists() && persistentFile.length() > 0L) Result.success() else Result.retry()
     }
 
     private fun saveToTree(context: Context, treeUri: Uri, source: File, fileName: String): Boolean {
