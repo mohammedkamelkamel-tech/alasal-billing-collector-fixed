@@ -325,7 +325,7 @@ fun BillDetailsScreen(
                 ) {
                     OutlinedButton(
                         onClick = {
-                            com.example.utils.PrintHelper.shareReceipt(context, bill)
+                            com.example.utils.PrintHelper.sendBillTextToWhatsApp(context, bill)
                         },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp)
@@ -337,24 +337,7 @@ fun BillDetailsScreen(
 
                     OutlinedButton(
                         onClick = {
-                            val pngFile = com.example.utils.InvoiceImageGenerator.generateInvoiceImage(context, bill)
-                            if (pngFile != null) {
-                                val authority = "${context.packageName}.fileprovider"
-                                val contentUri = androidx.core.content.FileProvider.getUriForFile(context, authority, pngFile)
-                                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                    type = "image/png"
-                                    putExtra(android.content.Intent.EXTRA_SUBJECT, "فاتورة كهرباء - ${bill.invoiceNumber}")
-                                    putExtra(android.content.Intent.EXTRA_STREAM, contentUri)
-                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                try {
-                                    context.startActivity(android.content.Intent.createChooser(shareIntent, "مشاركة الفاتورة (صورة):"))
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "فشل المشاركة", Toast.LENGTH_SHORT).show()
-                                }
-                            } else {
-                                Toast.makeText(context, "فشل توليد صورة الفاتورة", Toast.LENGTH_SHORT).show()
-                            }
+                            com.example.utils.PrintHelper.sendBillImageToWhatsApp(context, bill)
                         },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp)
