@@ -34,6 +34,7 @@ fun BillDetailsScreen(
     onPayClick: (BillEntity, Double, String) -> Unit,
     onEditClick: (BillEntity) -> Unit,
     onDeleteClick: (BillEntity) -> Unit,
+    onRefreshPrice: (BillEntity) -> Unit = {},
     canEdit: Boolean = false // 👈 صلاحية تعديل الفاتورة (المسؤول فقط)
 ) {
     val context = LocalContext.current
@@ -393,6 +394,21 @@ fun BillDetailsScreen(
                     }
                 }
                 
+                if (canEdit) {
+                    OutlinedButton(
+                        onClick = {
+                            onRefreshPrice(bill)
+                            Toast.makeText(context, "تم طلب تحديث سعر الفاتورة بسعر المشترك الحالي", Toast.LENGTH_LONG).show()
+                        },
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(imageVector = Icons.Filled.Refresh, contentDescription = "تحديث السعر")
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("تحديث سعر الفاتورة بسعر المشترك الحالي")
+                    }
+                }
+
                 Button(
                     onClick = { showDeleteConfirmDialog = true },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
