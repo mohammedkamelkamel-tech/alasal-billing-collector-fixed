@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.model.BillEntity
+import com.example.data.model.PaymentEntity
 import com.example.data.model.BillStatus
 import com.example.data.model.UserEntity
 import com.example.ui.components.PaymentDialog
@@ -32,6 +33,7 @@ import com.example.ui.theme.VibrantGreen
 @Composable
 fun BillingScreen(
     bills: List<BillEntity>,
+    payments: List<PaymentEntity>,
     users: List<UserEntity>,
     canPerformAction: (String) -> Boolean,
     searchQuery: String,
@@ -182,23 +184,60 @@ fun BillingScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (filter == "ALL" && selectedSubscriberId == null) {
-                if (subscriberList.isEmpty()) {
-                    EmptyBillingState(text = "لا يوجد مشترك لديه فواتير بعد")
+                val visiblePayments = payments.filter { payment ->
+                    searchQuery.isBlank() ||
+                        payment.userName.contains(searchQuery, ignoreCase = true) ||
+                        payment.invoiceNumber.contains(searchQuery, ignoreCase = true) ||
+                        payment.receiptNumber.toString().contains(searchQuery)
+                }.sortedByDescending { it.paymentAt }
+                if (filteredBills.isEmpty() && visiblePayments.isEmpty()) {
+                    EmptyBillingState(text = "لا توجد فواتير أو إيصالات مسجلة بعد")
                 } else {
                     LazyColumn(
                         modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(bottom = 88.dp)
                     ) {
-                        items(subscriberList) { user ->
-                            SubscriberBillsCard(
-                                user = user,
-                                bills = bills.filter { it.userId == user.id },
-                                onClick = {
-                                    selectedSubscriberId = user.id
-                                    onSearchQueryChange("")
+                        item { Text("فواتير الاستهلاك", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
+                        if (filteredBills.isEmpty()) {
+                            item { Text("لا توجد فواتير استهلاك مطابقة", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        } else {
+                            items(filteredBills, key = { "bill-${it.id}" }) { bill ->
+                                DetailedBillCard(
+                                    bill = bill,
+                                    canPay = canPerformAction(PermissionKeys.CAN_PAY_BILL),
+                                    onClick = { onBillClick(bill) },
+                                    onPayClick = { payingBill = bill },
+                                    onPrintClick = { com.example.utils.PrintHelper.printBill(context, bill) }
+                                )
+                            }
+                        }
+                        item { Spacer(Modifier.height(4.dp)); Text("إيصالات التحصيل", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
+                        if (visiblePayments.isEmpty()) {
+                            item { Text("لا توجد إيصالات تحصيل مطابقة", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        } else {
+                            items(visiblePayments, key = { "payment-${it.id}" }) { payment ->
+                                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                            Text(payment.userName.ifBlank { "مشترك" }, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                            Text(CurrencyFormatter.riyal(payment.amount), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                        }
+                                        Text("إيصال تحصيل #${payment.receiptNumber.takeIf { it > 0 } ?: "-"}", style = MaterialTheme.typography.titleSmall)
+                                        Text("الفاتورة: ${payment.invoiceNumber} • التاريخ: ${payment.paymentDate.ifBlank { "-" }}", style = MaterialTheme.typography.bodySmall)
+                                        Text("المحصل: ${payment.collectorName.ifBlank { "غير مسجل" }} • الطريقة: ${payment.method}", style = MaterialTheme.typography.bodySmall)
+                                        Text("المتبقي بعد التحصيل: ${CurrencyFormatter.riyal(payment.afterRemaining.coerceAtLeast(0.0))}", style = MaterialTheme.typography.bodySmall)
+                                        OutlinedButton(
+                                            onClick = { com.example.utils.PrintHelper.sharePaymentReceipt(context, payment) },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Icon(Icons.Filled.Share, contentDescription = null)
+                                            Spacer(Modifier.width(6.dp))
+                                            Text("مشاركة إيصال التحصيل")
+                                        }
+                                    }
                                 }
-                            )
+                            }
                         }
                     }
                 }
