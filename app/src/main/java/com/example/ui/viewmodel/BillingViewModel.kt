@@ -861,8 +861,20 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
 
     fun deleteBill(bill: BillEntity) {
         viewModelScope.launch {
+            // إزالة قراءة العداد المطابقة لفاتورة غير مدفوعة تمنع استخدامها
+            // كقراءة سابقة عند إصدار الفاتورة من جديد بعد حذفها.
+            if (bill.paidAmount <= 0.0 && bill.status != BillStatus.CARRIED.name) {
+                val readings = db.meterReadingDao().getForUser(bill.userId)
+                val linkedReading = readings
+                    .filter { kotlin.math.abs(it.previousReading - bill.prevReading) < 0.001 }
+                    .filter { kotlin.math.abs(it.currentReading - bill.currentReading) < 0.001 }
+                    .filter { bill.readingDate.isBlank() || it.readingDate == bill.readingDate }
+                    .maxByOrNull { it.createdAt }
+                if (linkedReading != null) repository.deleteMeterReading(linkedReading.id)
+            }
             repository.deleteBill(bill)
             refreshDataNow()
+            _refreshMeterReadingsFromDb()
             localNetworkSync.deleteBill(bill)
             selectedBill.value = null
         }

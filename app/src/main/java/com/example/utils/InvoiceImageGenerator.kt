@@ -111,7 +111,9 @@ object InvoiceImageGenerator {
             drawRow("القراءة السابقة:", "${bill.prevReading.toInt()} ك.و.س")
             drawRow("القراءة الحالية:", "${bill.currentReading.toInt()} ك.و.س")
             drawRow("إجمالي الاستهلاك:", "${bill.consumptionKwh.toInt()} ك.و.س")
-            drawRow("سعر الكيلو واط:", "${bill.unitPrice} ريال")
+            if (context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE).getBoolean("invoice_show_unit_price", true)) {
+                drawRow("سعر الكيلو واط:", "${bill.unitPrice} ريال")
+            }
             
             y += 20f
             canvas.drawLine(50f, y, width - 50f, y, linePaint)

@@ -27,7 +27,9 @@ object WhatsAppHelper {
             appendLine("القراءة السابقة: ${formatNumber(bill.prevReading)}")
             appendLine("القراءة الحالية: ${formatNumber(bill.currentReading)}")
             appendLine("الاستهلاك: ${formatNumber(bill.consumptionKwh)} ك.و.س")
-            appendLine("سعر الكيلو: ${formatMoney(bill.unitPrice)} ريال")
+            if (context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE).getBoolean("invoice_show_unit_price", true)) {
+                appendLine("سعر الكيلو: ${formatMoney(bill.unitPrice)} ريال")
+            }
             appendLine("قيمة الاستهلاك: ${formatMoney(bill.subtotalAmount)} ريال")
             if (bill.previousDebt != 0.0) {
                 appendLine("المتأخرات/الرصيد: ${formatMoney(bill.previousDebt)} ريال")

@@ -43,6 +43,7 @@ fun SettingsScreen(
     val orgPhone by viewModel.orgPhone.collectAsStateWithLifecycle()
     val orgAddress by viewModel.orgAddress.collectAsStateWithLifecycle()
     val currency by viewModel.currency.collectAsStateWithLifecycle()
+    var showUnitPriceInInvoice by remember { mutableStateOf(viewModel.getPreferenceBoolean("invoice_show_unit_price", true)) }
     var autoBackupEnabled by remember { mutableStateOf(viewModel.getPreferenceBoolean("backup_auto_enabled", true)) }
     var localTreeUri by remember { mutableStateOf(viewModel.getPreferenceString("backup_local_tree_uri", "")) }
     var driveTreeUri by remember { mutableStateOf(viewModel.getPreferenceString("backup_drive_tree_uri", "")) }
@@ -296,6 +297,19 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
+
+        SettingsGroupCard(title = "إعدادات عرض الفاتورة") {
+            SettingsToggleRow(
+                title = "إظهار سعر الكيلو في الفاتورة",
+                subtitle = "عند الإيقاف يُخفى سعر الكيلو من الفاتورة المطبوعة والصورة والنص وواتساب، مع بقاء الحسابات كما هي",
+                checked = showUnitPriceInInvoice,
+                onCheckedChange = { enabled ->
+                    showUnitPriceInInvoice = enabled
+                    viewModel.updatePreferenceBoolean("invoice_show_unit_price", enabled)
+                },
+                testTag = "invoice_show_unit_price_switch"
+            )
         }
 
         // Section 3: Notification Settings

@@ -417,7 +417,15 @@ fun AddEditBillScreen(
                 onClick = {
                     val user = selectedUser
                     if (user != null) {
-                        if (existingBill == null) {
+                        // حماية من إصدار فاتورة بصفر استهلاك إذا كانت القراءة الحالية
+                        // غير صحيحة أو أقل من السابقة (مثل إعادة الإصدار بعد حذف فاتورة).
+                        if (currNum < prevNum) {
+                            Toast.makeText(
+                                context,
+                                "القراءة الحالية (${currNum.toInt()}) أقل من القراءة السابقة (${prevNum.toInt()}). أدخل القراءة الحالية الصحيحة قبل الحفظ.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } else if (existingBill == null) {
                             onSaveBill(
                                 user.id,
                                 user.name,
