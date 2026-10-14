@@ -5,6 +5,8 @@ import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
@@ -50,8 +52,8 @@ object GoogleDriveBackup {
         } catch (_: Exception) { false }
     }
 
-    fun uploadWithToken(context: Context, token: String, file: File, fileName: String): Boolean {
-        return try {
+    suspend fun uploadWithToken(context: Context, token: String, file: File, fileName: String): Boolean = withContext(Dispatchers.IO) {
+        try {
             if (!file.exists() || file.length() <= 0L) return false
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val folderId = ensureFolder(token, prefs.getString(KEY_FOLDER_ID, null)) ?: return false
