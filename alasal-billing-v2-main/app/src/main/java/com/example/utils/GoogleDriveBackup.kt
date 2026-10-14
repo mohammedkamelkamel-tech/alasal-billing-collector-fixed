@@ -33,16 +33,21 @@ object GoogleDriveBackup {
     suspend fun authorizationResult(context: Context) =
         Identity.getAuthorizationClient(context).authorize(authorizationRequest()).await()
 
-    suspend fun uploadBackup(context: Context, file: File, fileName: String): Boolean = try {
-        val result = authorizationResult(context)
-        if (result.hasResolution()) return false
-        val token = result.accessToken ?: return false
-        uploadWithToken(context, token, file, fileName)
-    } catch (_: Exception) { false }
+    suspend fun uploadBackup(context: Context, file: File, fileName: String): Boolean {
+        return try {
+            val result = authorizationResult(context)
+            if (result.hasResolution()) false
+            else {
+                val token = result.accessToken
+                !token.isNullOrBlank() && uploadWithToken(context, token, file, fileName)
+            }
+        } catch (_: Exception) { false }
+    }
 
-    fun uploadWithToken(context: Context, token: String, file: File, fileName: String): Boolean = try {
-        if (!file.exists() || file.length() <= 0L) return false
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    fun uploadWithToken(context: Context, token: String, file: File, fileName: String): Boolean {
+        return try {
+            if (!file.exists() || file.length() <= 0L) return false
+            val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val folderId = ensureFolder(token, prefs.getString(KEY_FOLDER_ID, null)) ?: return false
         prefs.edit().putString(KEY_FOLDER_ID, folderId).apply()
         val existingId = findFile(token, folderId, fileName)
@@ -64,7 +69,8 @@ object GoogleDriveBackup {
                 .header("Authorization", "Bearer $token").post(body).build()
             client.newCall(req).execute().use { it.isSuccessful }
         }
-    } catch (_: Exception) { false }
+        } catch (_: Exception) { false }
+    }
 
     private fun ensureFolder(token: String, savedId: String?): String? {
         if (!savedId.isNullOrBlank()) {
