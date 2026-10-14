@@ -192,6 +192,81 @@ object PrintHelper {
             android.widget.Toast.makeText(context, "لم يتم العثور على تطبيق مناسب للمشاركة", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
+    private fun normalizeYemenPhone(raw: String): String {
+        val digits = raw.filter { it.isDigit() }
+        return when {
+            digits.startsWith("00") -> digits.drop(2)
+            digits.startsWith("967") -> digits
+            digits.startsWith("0") -> "967" + digits.drop(1)
+            digits.length == 9 -> "967" + digits
+            else -> digits
+        }
+    }
+
+    /** يفتح محادثة رقم المشترك مباشرة برسالة الفاتورة الجاهزة. */
+    fun sendBillTextToWhatsApp(context: Context, bill: BillEntity) {
+        val phone = normalizeYemenPhone(bill.userPhone)
+        if (phone.length < 10) {
+            android.widget.Toast.makeText(context, "رقم هاتف المشترك غير صحيح أو غير مسجل", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        val showUnitPrice = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+            .getBoolean("invoice_show_unit_price", true)
+        val text = """
+            ⚡ *فاتورة كهرباء - محطة العسل*
+            👤 المشترك: ${bill.userName}
+            📄 رقم الفاتورة: ${bill.invoiceNumber}
+            📊 القراءة السابقة: ${bill.prevReading.toInt()} ك.و.س
+            📈 القراءة الحالية: ${bill.currentReading.toInt()} ك.و.س
+            ⚡ الاستهلاك: ${bill.consumptionKwh.toInt()} ك.و.س
+            ${if (showUnitPrice) "💵 سعر الكيلو: ${bill.unitPrice} ريال" else ""}
+            💰 إجمالي المستحق: ${CurrencyFormatter.riyalFull(bill.totalAmount)}
+            💵 المدفوع: ${CurrencyFormatter.riyal(bill.paidAmount)}
+            🔻 المتبقي: ${CurrencyFormatter.riyal(bill.remainingAmount)}
+            📅 تاريخ الفاتورة: ${bill.issueDate.ifBlank { bill.readingDate }}
+        """.trimIndent()
+        val uri = android.net.Uri.parse("https://wa.me/$phone?text=" +
+            java.net.URLEncoder.encode(text, "UTF-8"))
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, uri).apply { setPackage("com.whatsapp") })
+        } catch (_: Exception) {
+            try { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+            catch (_: Exception) {
+                android.widget.Toast.makeText(context, "تعذر فتح واتساب أو لا يوجد مثبتًا", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    /** يرسل صورة الفاتورة إلى محادثة رقم المشترك المحدد؛ يتطلب تأكيد الإرسال داخل واتساب. */
+    fun sendBillImageToWhatsApp(context: Context, bill: BillEntity) {
+        val phone = normalizeYemenPhone(bill.userPhone)
+        if (phone.length < 10) {
+            android.widget.Toast.makeText(context, "رقم هاتف المشترك غير صحيح أو غير مسجل", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        val pngFile = InvoiceImageGenerator.generateInvoiceImage(context, bill)
+        if (pngFile == null) {
+            android.widget.Toast.makeText(context, "تعذر تجهيز صورة الفاتورة", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        try {
+            val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", pngFile)
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "image/png"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_TEXT, "فاتورة كهرباء - ${bill.invoiceNumber} - ${bill.userName}")
+                // WhatsApp supports this recipient hint on many versions; if unsupported it may show its chat picker.
+                putExtra("jid", "$phone@s.whatsapp.net")
+                setPackage("com.whatsapp")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                clipData = android.content.ClipData.newUri(context.contentResolver, "فاتورة الكهرباء", uri)
+            }
+            context.startActivity(send)
+        } catch (_: Exception) {
+            android.widget.Toast.makeText(context, "تعذر فتح واتساب لإرسال الصورة. تحقق من تثبيت واتساب.", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
     /** مشاركة إيصال تحصيل مستقل كنص جاهز للإرسال عبر واتساب أو أي تطبيق مشاركة. */
     fun sharePaymentReceipt(context: Context, payment: PaymentEntity) {
         val receiptText = """
