@@ -55,6 +55,75 @@ fun SettingsScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
+    var driveApiConnected by remember { mutableStateOf(viewModel.getPreferenceBoolean("backup_drive_api_enabled", false)) }
+
+    val driveAuthorizationLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
+    ) { activityResult ->
+        coroutineScope.launch {
+            try {
+                val auth = com.google.android.gms.auth.api.identity.Identity
+                    .getAuthorizationClient(context)
+                    .getAuthorizationResultFromIntent(activityResult.data)
+                val token = auth.accessToken
+                if (activityResult.resultCode == android.app.Activity.RESULT_OK && !token.isNullOrBlank()) {
+                    val backupFile = com.example.utils.BackupHelper.createBackupFileForSharing(context)
+                    val success = backupFile != null && com.example.utils.GoogleDriveBackup
+                        .uploadWithToken(context, token, backupFile, backupFile.name)
+                    if (success) {
+                        driveApiConnected = true
+                        viewModel.updatePreferenceBoolean("backup_drive_api_enabled", true)
+                        com.example.utils.AutoBackupWorker.schedule(context)
+                        Toast.makeText(context, "تم ربط Google Drive ورفع نسخة تجريبية بنجاح", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(context, "تم منح الإذن، لكن تعذر رفع النسخة. تحقق من تفعيل Drive API وصلاحيات OAuth.", Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    Toast.makeText(context, "لم يكتمل إذن Google Drive", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "تعذر إكمال ربط Google Drive: ${e.message ?: "خطأ غير معروف"}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    val connectDriveAction: () -> Unit = {
+        coroutineScope.launch {
+            try {
+                val auth = com.example.utils.GoogleDriveBackup.authorizationResult(context)
+                if (auth.hasResolution()) {
+                    val pendingIntent = auth.pendingIntent
+                    if (pendingIntent != null) {
+                        driveAuthorizationLauncher.launch(
+                            androidx.activity.result.IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+                        )
+                    } else {
+                        Toast.makeText(context, "تطلب Google إذناً إضافياً ولم تُرجع نافذة الموافقة", Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    val token = auth.accessToken
+                    if (token.isNullOrBlank()) {
+                        Toast.makeText(context, "لم يتم الحصول على رمز الوصول من Google", Toast.LENGTH_LONG).show()
+                    } else {
+                        val backupFile = com.example.utils.BackupHelper.createBackupFileForSharing(context)
+                        val success = backupFile != null && com.example.utils.GoogleDriveBackup
+                            .uploadWithToken(context, token, backupFile, backupFile.name)
+                        if (success) {
+                            driveApiConnected = true
+                            viewModel.updatePreferenceBoolean("backup_drive_api_enabled", true)
+                            com.example.utils.AutoBackupWorker.schedule(context)
+                            Toast.makeText(context, "تم ربط Google Drive ورفع نسخة تجريبية بنجاح", Toast.LENGTH_LONG).show()
+                        } else {
+                            Toast.makeText(context, "تعذر رفع النسخة إلى Drive. تحقق من إعدادات Google Cloud.", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "فشل ربط Google Drive: ${e.message ?: "خطأ غير معروف"}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -450,6 +519,25 @@ fun SettingsScreen(
                     Text(if (driveTreeUri.isBlank()) "اضغط هنا واختر Google Drive ثم مجلد النسخ مرة واحدة؛ سيحاول التطبيق رفع النسخة يومياً تلقائياً" else "تم حفظ مجلد النسخ المحدد؛ سيُعاد رفع النسخ تلقائياً، مع الاحتفاظ بنسخة داخل التطبيق", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                 }
                 Icon(Icons.Filled.CloudUpload, contentDescription = "Google Drive", tint = ElectricBlue)
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { connectDriveAction() }.padding(vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("ربط Google Drive مباشرة", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        if (driveApiConnected) "تم الربط؛ سيُرفع النسخ الاحتياطي اليومي تلقائياً عند توفر الصلاحية والإنترنت"
+                        else "اضغط لمنح الإذن ورفع نسخة تجريبية؛ لا تحتاج لاختيار مجلد يدوياً",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray
+                    )
+                }
+                Icon(Icons.Filled.CloudUpload, contentDescription = "ربط Google Drive", tint = ElectricBlue)
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
