@@ -813,6 +813,35 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * يعيد تسعير فاتورة محددة بسعر المشترك الحالي، دون تغيير الفواتير الأخرى.
+     * يحافظ على المتأخرات والمدفوعات المسجلة ويعيد حساب الإجمالي والمتبقي.
+     */
+    fun refreshBillPriceFromSubscriber(bill: BillEntity) {
+        viewModelScope.launch {
+            val currentBill = repository.getBillById(bill.id) ?: return@launch
+            val subscriber = repository.getUserById(currentBill.userId) ?: return@launch
+            val newPrice = subscriber.unitPrice
+            if (newPrice <= 0.0 || newPrice == currentBill.unitPrice) {
+                refreshDataNow()
+                return@launch
+            }
+            val newSubtotal = currentBill.consumptionKwh * newPrice
+            val newTotal = (newSubtotal + currentBill.previousDebt).coerceAtLeast(0.0)
+            val newRemaining = newTotal - currentBill.paidAmount
+            val updated = currentBill.copy(
+                unitPrice = newPrice,
+                subtotalAmount = newSubtotal,
+                totalAmount = newTotal,
+                remainingAmount = newRemaining,
+                status = if (newRemaining <= 0.0) BillStatus.PAID.name else BillStatus.UNPAID.name
+            )
+            repository.updateBill(updated)
+            localNetworkSync.saveBill(updated)
+            refreshDataNow()
+        }
+    }
+
     fun updateUser(user: UserEntity) {
         viewModelScope.launch {
             repository.updateUser(user)
