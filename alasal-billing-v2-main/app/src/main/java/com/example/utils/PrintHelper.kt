@@ -275,35 +275,34 @@ object PrintHelper {
         }
     }
 
-    /** مشاركة إيصال تحصيل مستقل كنص جاهز للإرسال عبر واتساب أو أي تطبيق مشاركة. */
+    /** يرسل صورة إيصال التحصيل مباشرة إلى محادثة المشترك في واتساب، مع تأكيد الإرسال داخل التطبيق. */
     fun sharePaymentReceipt(context: Context, payment: PaymentEntity, subscriberPhone: String = "") {
-        val receiptText = """
-            💰 *إيصال تحصيل كهرباء*
-            
-            👤 *اسم المشترك:* ${payment.userName.ifBlank { "غير مسجل" }}
-            🧾 *رقم الإيصال:* ${payment.receiptNumber.takeIf { it > 0 } ?: "-"}
-            📄 *رقم الفاتورة:* ${payment.invoiceNumber.ifBlank { "-" }}
-            💵 *المبلغ المحصّل:* ${CurrencyFormatter.riyal(payment.amount)}
-            💳 *طريقة الدفع:* ${payment.method}
-            👨‍💼 *المحصّل:* ${payment.collectorName.ifBlank { "غير مسجل" }}
-            📅 *تاريخ التحصيل:* ${payment.paymentDate.ifBlank { "-" }}
-            💰 *المتبقي بعد التحصيل:* ${CurrencyFormatter.riyal(payment.afterRemaining.coerceAtLeast(0.0))}
-            
-            شكراً لكم.
-        """.trimIndent()
         val phone = normalizeYemenPhone(subscriberPhone)
         if (phone.length < 10) {
             android.widget.Toast.makeText(context, "رقم هاتف المشترك غير صحيح أو غير مسجل", android.widget.Toast.LENGTH_LONG).show()
             return
         }
-        val uri = android.net.Uri.parse("https://wa.me/$phone?text=" + java.net.URLEncoder.encode(receiptText, "UTF-8"))
+        val imageFile = InvoiceImageGenerator.generatePaymentReceiptImage(context, payment)
+        if (imageFile == null) {
+            android.widget.Toast.makeText(context, "تعذر تجهيز صورة إيصال التحصيل", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
         try {
-            context.startActivity(Intent(Intent.ACTION_VIEW, uri).apply { setPackage("com.whatsapp") })
-        } catch (_: Exception) {
-            try { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
-            catch (_: Exception) {
-                android.widget.Toast.makeText(context, "تعذر فتح واتساب أو لا يوجد مثبتًا", android.widget.Toast.LENGTH_LONG).show()
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context, "${context.packageName}.fileprovider", imageFile
+            )
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "image/png"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_TEXT, "إيصال تحصيل كهرباء - ${payment.userName}")
+                putExtra("jid", "$phone@s.whatsapp.net")
+                setPackage("com.whatsapp")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                clipData = android.content.ClipData.newUri(context.contentResolver, "إيصال التحصيل", uri)
             }
+            context.startActivity(send)
+        } catch (_: Exception) {
+            android.widget.Toast.makeText(context, "تعذر فتح واتساب لإرسال صورة الإيصال. تحقق من تثبيت واتساب.", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 
