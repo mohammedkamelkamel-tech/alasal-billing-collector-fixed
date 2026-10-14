@@ -228,7 +228,7 @@ fun BillingScreen(
                                         Text("المحصل: ${payment.collectorName.ifBlank { "غير مسجل" }} • الطريقة: ${payment.method}", style = MaterialTheme.typography.bodySmall)
                                         Text("المتبقي بعد التحصيل: ${CurrencyFormatter.riyal(payment.afterRemaining.coerceAtLeast(0.0))}", style = MaterialTheme.typography.bodySmall)
                                         OutlinedButton(
-                                            onClick = { com.example.utils.PrintHelper.sharePaymentReceipt(context, payment) },
+                                            onClick = { com.example.utils.PrintHelper.sharePaymentReceipt(context, payment, bills.firstOrNull { it.id == payment.billId }?.userPhone.orEmpty()) },
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
                                             Icon(Icons.Filled.Share, contentDescription = null)
