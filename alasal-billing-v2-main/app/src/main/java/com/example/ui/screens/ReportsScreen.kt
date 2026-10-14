@@ -58,7 +58,10 @@ private data class ReportMetrics(
 )
 
 @Composable
-fun ReportsScreen(bills: List<com.example.data.model.BillEntity>) {
+fun ReportsScreen(
+    bills: List<com.example.data.model.BillEntity>,
+    payments: List<com.example.data.model.PaymentEntity> = emptyList()
+) {
     var selectedRange by remember { mutableStateOf("شهر") }
     var rangeMenuExpanded by remember { mutableStateOf(false) }
     var exportMenuExpanded by remember { mutableStateOf(false) }
@@ -66,32 +69,96 @@ fun ReportsScreen(bills: List<com.example.data.model.BillEntity>) {
     val ranges = listOf("آخر 7 أيام", "شهر", "سنة", "مخصص")
     val context = LocalContext.current
 
-    val reportData = remember(selectedRange, bills) {
-        val totalBillsCount = bills.size
-        // بعد إلغاء الضريبة: الإيراد = ما تم تحصيله فعلياً (يشمل الدفعات الجزئية)
-        val totalRevenueVal = bills.sumOf { it.paidAmount }
-        val avgConsump = if (bills.isNotEmpty()) bills.sumOf { it.consumptionKwh } / bills.size else 0.0
+    val now = remember(selectedRange) { java.util.Calendar.getInstance() }
+    val rangeStart = remember(selectedRange) {
+        val cal = java.util.Calendar.getInstance()
+        when (selectedRange) {
+            "آخر 7 أيام" -> cal.add(java.util.Calendar.DAY_OF_YEAR, -6)
+            "سنة" -> {
+                cal.set(java.util.Calendar.DAY_OF_YEAR, 1)
+                cal.set(java.util.Calendar.MONTH, java.util.Calendar.JANUARY)
+            }
+            else -> {
+                // الشهر الحالي، ويستخدم أيضاً كنطاق افتراضي للخيار المخصص حتى يضاف منتقي تاريخ.
+                cal.set(java.util.Calendar.DAY_OF_MONTH, 1)
+            }
+        }
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        cal.set(java.util.Calendar.MINUTE, 0)
+        cal.set(java.util.Calendar.SECOND, 0)
+        cal.set(java.util.Calendar.MILLISECOND, 0)
+        cal.timeInMillis
+    }
+    val rangeEnd = remember(selectedRange) {
+        val cal = java.util.Calendar.getInstance()
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 23)
+        cal.set(java.util.Calendar.MINUTE, 59)
+        cal.set(java.util.Calendar.SECOND, 59)
+        cal.set(java.util.Calendar.MILLISECOND, 999)
+        cal.timeInMillis
+    }
+    val reportData = remember(selectedRange, bills, payments, rangeStart, rangeEnd) {
+        val periodBills = bills.filter { it.createdAt in rangeStart..rangeEnd }
+        val periodPayments = payments.filter { it.paymentAt in rangeStart..rangeEnd }
+        val totalBillsCount = periodBills.size
+        val collected = periodPayments.sumOf { it.amount }
+        val totalKwh = periodBills.sumOf { it.consumptionKwh }
+        val avgConsump = if (periodBills.isNotEmpty()) totalKwh / periodBills.size else 0.0
 
-        val paidCount = bills.count { it.status == "PAID" }
-        val unpaidCount = bills.count { it.status == "UNPAID" }
-        val lateCount = bills.count { it.status == "LATE" }
-
+        val paidCount = periodBills.count { it.status == "PAID" }
+        val unpaidCount = periodBills.count { it.status == "UNPAID" }
+        val lateCount = periodBills.count { it.status == "LATE" }
         val totalStatus = (paidCount + unpaidCount + lateCount).takeIf { it > 0 } ?: 1
-        val pPaid = (paidCount.toFloat() / totalStatus) * 100
-        val pUnpaid = (unpaidCount.toFloat() / totalStatus) * 100
-        val pLate = (lateCount.toFloat() / totalStatus) * 100
+        val pPaid = paidCount.toFloat() / totalStatus * 100f
+        val pUnpaid = unpaidCount.toFloat() / totalStatus * 100f
+        val pLate = lateCount.toFloat() / totalStatus * 100f
 
-        val dummyConsump = listOf(42, 55, 48, 60, 52, 68, 75).map { it * (if (avgConsump > 0) 1 else 0) }
-        val dummyRevenue = listOf(11, 13, 12, 15, 14, 17, 18).map { it * (if (totalRevenueVal > 0) 1 else 0) }
+        val consumptionSeries: List<Number>
+        val revenueSeries: List<Number>
+        if (selectedRange == "آخر 7 أيام") {
+            consumptionSeries = (0..6).map { offset ->
+                val dayStart = rangeStart + offset * 24L * 60L * 60L * 1000L
+                periodBills.filter { it.createdAt in dayStart until (dayStart + 24L * 60L * 60L * 1000L) }.sumOf { it.consumptionKwh }
+            }
+            revenueSeries = (0..6).map { offset ->
+                val dayStart = rangeStart + offset * 24L * 60L * 60L * 1000L
+                periodPayments.filter { it.paymentAt in dayStart until (dayStart + 24L * 60L * 60L * 1000L) }.sumOf { it.amount }
+            }
+        } else if (selectedRange == "سنة") {
+            consumptionSeries = (0..11).map { month ->
+                periodBills.filter {
+                    val cal = java.util.Calendar.getInstance().apply { timeInMillis = it.createdAt }
+                    cal.get(java.util.Calendar.MONTH) == month
+                }.sumOf { it.consumptionKwh }
+            }
+            revenueSeries = (0..11).map { month ->
+                periodPayments.filter {
+                    val cal = java.util.Calendar.getInstance().apply { timeInMillis = it.paymentAt }
+                    cal.get(java.util.Calendar.MONTH) == month
+                }.sumOf { it.amount }
+            }
+        } else {
+            val dayCount = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_MONTH)
+            consumptionSeries = (1..dayCount).map { day ->
+                periodBills.filter {
+                    java.util.Calendar.getInstance().apply { timeInMillis = it.createdAt }.get(java.util.Calendar.DAY_OF_MONTH) == day
+                }.sumOf { it.consumptionKwh }
+            }
+            revenueSeries = (1..dayCount).map { day ->
+                periodPayments.filter {
+                    java.util.Calendar.getInstance().apply { timeInMillis = it.paymentAt }.get(java.util.Calendar.DAY_OF_MONTH) == day
+                }.sumOf { it.amount }
+            }
+        }
 
         ReportMetrics(
             totalBills = "$totalBillsCount فاتورة",
-            totalRevenue = CurrencyFormatter.riyal(totalRevenueVal),
+            totalRevenue = CurrencyFormatter.riyal(collected),
             avgConsumption = "${CurrencyFormatter.kwh(avgConsump)} ك.و.س",
-            consumptionTitle = "الاستهلاك (ك.و.س)",
-            consumptionValues = if (dummyConsump.sum() == 0) listOf(0,0,0) else dummyConsump,
-            revenueTitle = "الإيرادات (ريال يمني)",
-            revenueValues = if (dummyRevenue.sum() == 0) listOf(0,0,0) else dummyRevenue,
+            consumptionTitle = "الكيلوهات المستهلكة في الفترة (ك.و.س): ${CurrencyFormatter.kwh(totalKwh)}",
+            consumptionValues = if (consumptionSeries.isEmpty()) listOf(0) else consumptionSeries,
+            revenueTitle = "التحصيل الفعلي خلال الفترة (ريال يمني): ${CurrencyFormatter.riyal(collected)}",
+            revenueValues = if (revenueSeries.isEmpty()) listOf(0) else revenueSeries,
             paidPercent = pPaid,
             unpaidPercent = pUnpaid,
             overduePercent = pLate
@@ -101,7 +168,7 @@ fun ReportsScreen(bills: List<com.example.data.model.BillEntity>) {
     val columnModelProducer = remember { CartesianChartModelProducer() }
     val lineModelProducer = remember { CartesianChartModelProducer() }
 
-    LaunchedEffect(selectedRange) {
+    LaunchedEffect(selectedRange, reportData) {
         columnModelProducer.runTransaction {
             columnSeries { series(reportData.consumptionValues) }
         }
