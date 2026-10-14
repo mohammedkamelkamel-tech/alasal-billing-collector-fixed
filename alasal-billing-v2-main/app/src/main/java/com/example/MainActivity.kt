@@ -193,8 +193,7 @@ class MainActivity : ComponentActivity() {
                                 onBillClick = { bill ->
                                     viewModel.selectBill(bill)
                                     navController.navigate("bill_details")
-                                },
-                                onMeterReadingClick = { navController.navigate("meter_reading") }
+                                }
                             )
                         }
 
