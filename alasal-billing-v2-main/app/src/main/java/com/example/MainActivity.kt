@@ -363,6 +363,10 @@ class MainActivity : ComponentActivity() {
                                         // تعديل الفاتورة متاح للمسؤول فقط، وغير ذلك تظهر رسالة "ليس لديك صلاحية"
                                         canEdit = viewModel.canEditBills(),
                                         onEditClick = { navController.navigate("add_edit_bill") },
+                                        onRefreshPrice = { b ->
+                                            viewModel.refreshBillPriceFromSubscriber(b)
+                                            Toast.makeText(this@MainActivity, "جارٍ تحديث سعر الفاتورة بالسعر الحالي للمشترك", Toast.LENGTH_SHORT).show()
+                                        },
                                         onDeleteClick = { b ->
                                             viewModel.deleteBill(b)
                                             Toast.makeText(this@MainActivity, "تم حذف الفاتورة بنجاح", Toast.LENGTH_SHORT).show()
