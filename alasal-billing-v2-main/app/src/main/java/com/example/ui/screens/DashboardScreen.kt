@@ -38,8 +38,7 @@ fun DashboardScreen(
     bills: List<BillEntity>,
     users: List<UserEntity>,
     onAddBillClick: () -> Unit,
-    onBillClick: (BillEntity) -> Unit,
-    onMeterReadingClick: () -> Unit
+    onBillClick: (BillEntity) -> Unit
 ) {
     val isAdmin = currentUserProfile.roleType == RoleType.SUPERVISOR
     val totalUsers = users.size
@@ -78,14 +77,6 @@ fun DashboardScreen(
             SectionTitle("الوصول السريع")
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                QuickAction(
-                    title = "قراءة العداد",
-                    icon = Icons.Filled.ElectricMeter,
-                    color = ElectricBlue,
-                    modifier = Modifier.weight(1f),
-                    enabled = canPerformAction(PermissionKeys.CAN_ADD_BILL),
-                    onClick = onMeterReadingClick
-                )
                 QuickAction(
                     title = "فاتورة جديدة",
                     icon = Icons.Filled.ReceiptLong,
