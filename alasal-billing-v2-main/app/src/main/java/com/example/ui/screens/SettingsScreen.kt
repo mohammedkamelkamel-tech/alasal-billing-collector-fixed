@@ -76,7 +76,7 @@ fun SettingsScreen(
                         com.example.utils.AutoBackupWorker.schedule(context)
                         Toast.makeText(context, "تم ربط Google Drive ورفع نسخة تجريبية بنجاح", Toast.LENGTH_LONG).show()
                     } else {
-                        Toast.makeText(context, "تم منح الإذن، لكن تعذر رفع النسخة. تحقق من تفعيل Drive API وصلاحيات OAuth.", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "فشل رفع Drive: " + context.getSharedPreferences(com.example.utils.GoogleDriveBackup.PREFS, android.content.Context.MODE_PRIVATE).getString(com.example.utils.GoogleDriveBackup.KEY_LAST_ERROR, "لا توجد تفاصيل"), Toast.LENGTH_LONG).show()
                     }
                 } else {
                     Toast.makeText(context, "لم يكتمل إذن Google Drive", Toast.LENGTH_SHORT).show()
@@ -114,7 +114,7 @@ fun SettingsScreen(
                             com.example.utils.AutoBackupWorker.schedule(context)
                             Toast.makeText(context, "تم ربط Google Drive ورفع نسخة تجريبية بنجاح", Toast.LENGTH_LONG).show()
                         } else {
-                            Toast.makeText(context, "تعذر رفع النسخة إلى Drive. تحقق من إعدادات Google Cloud.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "فشل رفع Drive: " + context.getSharedPreferences(com.example.utils.GoogleDriveBackup.PREFS, android.content.Context.MODE_PRIVATE).getString(com.example.utils.GoogleDriveBackup.KEY_LAST_ERROR, "لا توجد تفاصيل"), Toast.LENGTH_LONG).show()
                         }
                     }
                 }
