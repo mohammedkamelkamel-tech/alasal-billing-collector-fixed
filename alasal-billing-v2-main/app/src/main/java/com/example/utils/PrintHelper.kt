@@ -268,7 +268,7 @@ object PrintHelper {
     }
 
     /** مشاركة إيصال تحصيل مستقل كنص جاهز للإرسال عبر واتساب أو أي تطبيق مشاركة. */
-    fun sharePaymentReceipt(context: Context, payment: PaymentEntity) {
+    fun sharePaymentReceipt(context: Context, payment: PaymentEntity, subscriberPhone: String = "") {
         val receiptText = """
             💰 *إيصال تحصيل كهرباء*
             
@@ -283,15 +283,19 @@ object PrintHelper {
             
             شكراً لكم.
         """.trimIndent()
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, "إيصال تحصيل - ${payment.receiptNumber}")
-            putExtra(Intent.EXTRA_TEXT, receiptText)
+        val phone = normalizeYemenPhone(subscriberPhone)
+        if (phone.length < 10) {
+            android.widget.Toast.makeText(context, "رقم هاتف المشترك غير صحيح أو غير مسجل", android.widget.Toast.LENGTH_LONG).show()
+            return
         }
+        val uri = android.net.Uri.parse("https://wa.me/$phone?text=" + java.net.URLEncoder.encode(receiptText, "UTF-8"))
         try {
-            context.startActivity(Intent.createChooser(intent, "مشاركة إيصال التحصيل عبر واتساب أو تطبيق آخر"))
+            context.startActivity(Intent(Intent.ACTION_VIEW, uri).apply { setPackage("com.whatsapp") })
         } catch (_: Exception) {
-            android.widget.Toast.makeText(context, "تعذرت مشاركة إيصال التحصيل", android.widget.Toast.LENGTH_SHORT).show()
+            try { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+            catch (_: Exception) {
+                android.widget.Toast.makeText(context, "تعذر فتح واتساب أو لا يوجد مثبتًا", android.widget.Toast.LENGTH_LONG).show()
+            }
         }
     }
 
