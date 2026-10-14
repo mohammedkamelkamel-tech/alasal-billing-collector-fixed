@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.app.DatePickerDialog
 import android.net.Uri
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -22,6 +23,7 @@ import com.example.data.model.UserEntity
 import com.example.ui.theme.ElectricBlue
 import java.text.SimpleDateFormat
 import java.util.*
+import java.net.URLEncoder
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,13 +113,42 @@ fun MeterReadingScreen(
             OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("ملاحظات") }, modifier = Modifier.fillMaxWidth())
         }
         item {
+            OutlinedButton(
+                onClick = {
+                    val u = selectedUser ?: return@OutlinedButton
+                    val current = readingText.toDoubleOrNull() ?: return@OutlinedButton
+                    val previous = lastReadingFor(u.id)
+                    if (current < previous) return@OutlinedButton
+                    val phone = u.phone.filter { it.isDigit() }.let {
+                        when {
+                            it.startsWith("00") -> it.drop(2)
+                            it.startsWith("0") -> "967" + it.drop(1)
+                            it.startsWith("967") -> it
+                            else -> it
+                        }
+                    }
+                    if (phone.isBlank()) return@OutlinedButton
+                    val units = current - previous
+                    val amount = units * u.unitPrice
+                    val message = "محطة العسل\nفاتورة قراءة العداد\nالمشترك: ${u.name}\nرقم العداد: ${u.meterNumber}\nالقراءة السابقة: ${previous.toInt()}\nالقراءة الحالية: ${current.toInt()}\nالاستهلاك: ${units.toInt()} كيلوواط\nسعر الكيلو: ${u.unitPrice}\nالمبلغ: ${amount.toInt()} ريال\nتاريخ القراءة: $dateText"
+                    val url = "https://wa.me/" + phone + "?text=" + URLEncoder.encode(message, "UTF-8")
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Filled.Share, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("تجهيز الفاتورة ومشاركتها عبر واتساب")
+            }
+        }
+        item {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("إلغاء") }
                 Button(
                     onClick = {
                         val u = selectedUser ?: return@Button
                         val current = readingText.toDoubleOrNull()
-                        if (current == null || current < 0) return@Button
+                        if (current == null || current < lastReadingFor(u.id)) return@Button
                         onSaveReading(u.id, u.name, current, dateText, notes, imageUri?.toString())
                     }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue)
                 ) { Icon(Icons.Filled.Save, contentDescription = null); Spacer(Modifier.width(5.dp)); Text("حفظ القراءة") }
