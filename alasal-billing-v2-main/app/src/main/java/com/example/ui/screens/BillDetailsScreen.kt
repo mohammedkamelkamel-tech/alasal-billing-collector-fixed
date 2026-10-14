@@ -232,7 +232,9 @@ fun BillDetailsScreen(
                     )
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    DetailRow(label = "سعر الكيلو", value = "${bill.unitPrice.toInt()} ريال / ك.و.س")
+                    if (context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE).getBoolean("invoice_show_unit_price", true)) {
+                        DetailRow(label = "سعر الكيلو", value = "${bill.unitPrice.toInt()} ريال / ك.و.س")
+                    }
                     DetailRow(label = "قيمة الاستهلاك", value = CurrencyFormatter.riyal(bill.subtotalAmount))
                     DetailRow(label = "المتأخرات السابقة", value = CurrencyFormatter.riyal(bill.previousDebt))
                     DetailRow(label = "تاريخ الإصدار", value = bill.issueDate.ifBlank { bill.readingDate })

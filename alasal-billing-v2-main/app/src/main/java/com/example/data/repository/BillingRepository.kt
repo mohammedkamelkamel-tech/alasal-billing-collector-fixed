@@ -60,6 +60,7 @@ class BillingRepository(
     suspend fun completeReadingReminder(id: String) = readingReminderDao.complete(id)
     suspend fun deleteReadingReminder(id: String) = readingReminderDao.delete(id)
     suspend fun updateBill(bill: BillEntity) = billDao.updateBill(bill)
+    suspend fun deleteMeterReading(id: String) = meterReadingDao.deleteById(id)
     suspend fun deleteBill(bill: BillEntity) = billDao.deleteBill(bill)
     suspend fun insertPayment(payment: PaymentEntity) = paymentDao.insert(payment)
     suspend fun getPaymentsForBill(billId: String): List<PaymentEntity> = paymentDao.getForBill(billId)

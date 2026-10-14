@@ -21,6 +21,9 @@ interface MeterReadingDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(readings: List<MeterReadingEntity>)
 
+    @Query("DELETE FROM meter_readings WHERE id = :id")
+    suspend fun deleteById(id: String)
+
     @Query("DELETE FROM meter_readings")
     suspend fun deleteAll()
 }

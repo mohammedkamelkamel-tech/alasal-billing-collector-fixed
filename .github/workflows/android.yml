@@ -39,32 +39,34 @@ jobs:
 
       - name: Generate debug keystore
         shell: bash
+        working-directory: alasal-billing-v2-main
         run: |
           set -e
           # signingConfigs.create("debugConfig") في app/build.gradle.kts هو إعداد توقيع مخصص،
           # وآلية AGP لإنشاء ~/.android/debug.keystore تلقائيًا تعمل فقط مع إعداد التوقيع
           # الافتراضي المسمى حرفيًا "debug"، لذلك يجب توليد المفتاح يدويًا هنا.
           keytool -genkeypair -v \
-            -keystore "${{ github.workspace }}/debug.keystore" \
+            -keystore "${{ github.workspace }}/alasal-billing-v2-main/debug.keystore" \
             -storepass android -keypass android \
             -alias androiddebugkey \
             -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Build Debug APK
+        working-directory: alasal-billing-v2-main
         run: gradle :app:assembleDebug --stacktrace --no-daemon
 
       - name: Verify APK
         shell: bash
         run: |
           set -e
-          ls -lah app/build/outputs/apk/debug/
-          test -n "$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          ls -lah alasal-billing-v2-main/app/build/outputs/apk/debug/
+          test -n "$(find alasal-billing-v2-main/app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print -quit)"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ElectricityBillingAp-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: alasal-billing-v2-main/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30

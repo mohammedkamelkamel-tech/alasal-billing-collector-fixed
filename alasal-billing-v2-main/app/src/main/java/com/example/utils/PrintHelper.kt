@@ -100,6 +100,7 @@ object PrintHelper {
                 canvas.drawLine(50f, y, 545f, y, linePaint)
                 y += 30f
 
+                val showUnitPrice = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE).getBoolean("invoice_show_unit_price", true)
                 val lines = listOf(
                     "اسم المشترك: ${bill.userName}",
                     "رقم الهاتف: ${bill.userPhone}",
@@ -123,7 +124,7 @@ object PrintHelper {
                     "تاريخ القراءة: ${bill.readingDate}",
                     "تاريخ الاستحقاق: ${bill.dueDate}",
                     "=================================================="
-                )
+                ).filterNot { !showUnitPrice && it.startsWith("سعر الكيلو واط:") }
 
                 for (line in lines) {
                     canvas.drawText(line, 50f, y, textPaint)
@@ -152,6 +153,7 @@ object PrintHelper {
      * مشاركة تفاصيل الفاتورة كإيصال نصي عبر واتساب والتطبيقات الأخرى
      */
     fun shareReceipt(context: Context, bill: BillEntity) {
+        val showUnitPrice = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE).getBoolean("invoice_show_unit_price", true)
         val receiptText = """
             ⚡ *إيصال فاتورة كهرباء* ⚡
             
@@ -163,6 +165,7 @@ object PrintHelper {
             📈 *القراءة الحالية:* ${bill.currentReading.toInt()} ك.و.س
             ⚡ *الاستهلاك:* ${bill.consumptionKwh.toInt()} ك.و.س
             
+            ${if (showUnitPrice) "💵 *سعر الكيلو:* ${bill.unitPrice} ريال" else ""}
             💰 *قيمة الاستهلاك:* ${CurrencyFormatter.riyal(bill.subtotalAmount)}
             📛 *المتأخرات السابقة:* ${CurrencyFormatter.riyal(bill.previousDebt)}
             💵 *المبلغ الإجمالي:* ${CurrencyFormatter.riyalFull(bill.totalAmount)}

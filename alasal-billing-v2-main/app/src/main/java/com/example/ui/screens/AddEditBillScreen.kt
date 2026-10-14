@@ -393,6 +393,13 @@ fun AddEditBillScreen(
                 onClick = {
                     val user = selectedUser
                     if (user != null) {
+                        if (currNum < prevNum) {
+                            Toast.makeText(
+                                context,
+                                "القراءة الحالية (${currNum.toInt()}) أقل من القراءة السابقة (${prevNum.toInt()}). أدخل القراءة الحالية الصحيحة قبل الحفظ.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } else {
                         onSaveBill(
                             user.id,
                             user.name,
@@ -406,6 +413,7 @@ fun AddEditBillScreen(
                             imageUri?.toString()
                         )
                         Toast.makeText(context, "تم حفظ الفاتورة بسعر المشترك ${unitPrice.toInt()} ريال/ك.و.س بنجاح", Toast.LENGTH_SHORT).show()
+                        }
                     } else {
                         Toast.makeText(context, "يرجى اختيار المشترك أولاً", Toast.LENGTH_SHORT).show()
                     }
