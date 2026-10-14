@@ -193,13 +193,21 @@ object PrintHelper {
         }
     }
     private fun normalizeYemenPhone(raw: String): String {
-        val digits = raw.filter { it.isDigit() }
+        // wa.me requires ASCII digits; convert Arabic/Persian numerals and ignore separators.
+        val digits = raw.mapNotNull { ch ->
+            when (ch) {
+                in '0'..'9' -> ch
+                in '\u0660'..'\u0669' -> ('0'.code + (ch.code - '\u0660'.code)).toChar()
+                in '\u06F0'..'\u06F9' -> ('0'.code + (ch.code - '\u06F0'.code)).toChar()
+                else -> null
+            }
+        }.joinToString("")
+        val international = if (digits.startsWith("00")) digits.drop(2) else digits
         return when {
-            digits.startsWith("00") -> digits.drop(2)
-            digits.startsWith("967") -> digits
-            digits.startsWith("0") -> "967" + digits.drop(1)
-            digits.length == 9 -> "967" + digits
-            else -> digits
+            international.startsWith("967") -> international
+            international.startsWith("0") && international.length == 10 -> "967" + international.drop(1)
+            international.length == 9 -> "967$international"
+            else -> international
         }
     }
 
