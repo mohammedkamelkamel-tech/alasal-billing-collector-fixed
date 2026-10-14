@@ -14,12 +14,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extract project
-        run: |
-          unzip -q "ياعسل-تحديث-فوري.zip" -d project
-          cd project
-          find . -maxdepth 2 -type f | head -50
-
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -31,26 +25,44 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
-      - name: Generate debug keystore
+      - name: Prepare signing keystore
+        shell: bash
+        env:
+          ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
         run: |
-          keytool -genkeypair -v \
-            -keystore "$GITHUB_WORKSPACE/project/debug.keystore" \
-            -storepass android \
-            -keypass android \
-            -alias androiddebugkey \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+          set -e
+          KEYSTORE="$GITHUB_WORKSPACE/alasal-billing-v2-main/debug.keystore"
+          mkdir -p "$(dirname "$KEYSTORE")"
+          if [ -n "$ANDROID_DEBUG_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_DEBUG_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+            echo "Using the saved Android signing keystore from GitHub Actions secret."
+          else
+            echo "::warning::ANDROID_DEBUG_KEYSTORE_BASE64 is not configured. A temporary key will be generated; Google OAuth may fail because its SHA-1 changes between builds."
+            keytool -genkeypair -v \
+              -keystore "$KEYSTORE" \
+              -storepass android -keypass android \
+              -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          echo "Signing certificate SHA-1:"
+          keytool -list -v -keystore "$KEYSTORE" -storepass android -alias androiddebugkey | grep -E "SHA1:|SHA-1:"
 
-      - name: Build APK
-        working-directory: project
+      - name: Build current project APK
+        working-directory: alasal-billing-v2-main
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Verify APK
+        shell: bash
         run: |
-          gradle :app:assembleDebug --stacktrace --no-daemon
+          set -e
+          test -n "$(find alasal-billing-v2-main/app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          ls -lah alasal-billing-v2-main/app/build/outputs/apk/debug/
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ElectricityBillingApp-debug
-          path: project/app/build/outputs/apk/debug/*.apk
+          name: ElectricityBillingAp-debug
+          path: alasal-billing-v2-main/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+          retention-days: 30
