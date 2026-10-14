@@ -128,7 +128,7 @@ fun CollectionScreen(
                         Text("المحصل: ${payment.collectorName.ifBlank { "غير مسجل" }} • الطريقة: ${payment.method}", style = MaterialTheme.typography.bodySmall)
                         Text("المتبقي بعد الإيصال: ${CurrencyFormatter.riyal(payment.afterRemaining.coerceAtLeast(0.0))}", style = MaterialTheme.typography.labelSmall)
                         OutlinedButton(
-                            onClick = { com.example.utils.PrintHelper.sharePaymentReceipt(context = context, payment = payment) },
+                            onClick = { com.example.utils.PrintHelper.sharePaymentReceipt(context = context, payment = payment, subscriberPhone = bills.firstOrNull { it.id == payment.billId }?.userPhone.orEmpty()) },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Icon(Icons.Filled.Share, contentDescription = null)
