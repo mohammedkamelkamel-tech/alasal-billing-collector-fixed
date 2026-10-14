@@ -67,7 +67,7 @@ object GoogleDriveBackup {
                 .toRequestBody("application/json; charset=utf-8".toMediaType())
             // Drive API multipart uploads require multipart/related, not multipart/form-data.
             val body = MultipartBody.Builder()
-                .setType("related".toMediaType())
+                .setType("multipart/related".toMediaType())
                 .addPart(
                     Headers.headersOf("Content-Type", "application/json; charset=UTF-8"),
                     metadata
