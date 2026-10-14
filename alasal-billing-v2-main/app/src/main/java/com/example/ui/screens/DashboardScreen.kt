@@ -38,6 +38,7 @@ fun DashboardScreen(
     bills: List<BillEntity>,
     users: List<UserEntity>,
     onAddBillClick: () -> Unit,
+    onCollectionClick: () -> Unit,
     onBillClick: (BillEntity) -> Unit
 ) {
     val isAdmin = currentUserProfile.roleType == RoleType.SUPERVISOR
@@ -91,7 +92,7 @@ fun DashboardScreen(
                     color = Color(0xFFFF9800),
                     modifier = Modifier.weight(1f),
                     enabled = true,
-                    onClick = {}
+                    onClick = onCollectionClick
                 )
             }
         }
