@@ -322,7 +322,7 @@ class MainActivity : ComponentActivity() {
                             }
 
                             composable("reports") {
-                                ReportsScreen(bills = bills)
+                                ReportsScreen(bills = bills, payments = payments)
                             }
 
                             composable("settings") {
