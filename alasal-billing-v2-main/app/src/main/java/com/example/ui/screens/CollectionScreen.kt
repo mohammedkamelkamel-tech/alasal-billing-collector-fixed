@@ -7,10 +7,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Payment
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.model.BillEntity
@@ -27,6 +29,7 @@ fun CollectionScreen(
     canPerformAction: (String) -> Boolean,
     onPayClick: (BillEntity, Double, String) -> Unit
 ) {
+    val context = LocalContext.current
     var selectedBill by remember { mutableStateOf<BillEntity?>(null) }
 
     selectedBill?.let { bill ->
@@ -124,6 +127,14 @@ fun CollectionScreen(
                         )
                         Text("المحصل: ${payment.collectorName.ifBlank { "غير مسجل" }} • الطريقة: ${payment.method}", style = MaterialTheme.typography.bodySmall)
                         Text("المتبقي بعد الإيصال: ${CurrencyFormatter.riyal(payment.afterRemaining.coerceAtLeast(0.0))}", style = MaterialTheme.typography.labelSmall)
+                        OutlinedButton(
+                            onClick = { com.example.utils.PrintHelper.sharePaymentReceipt(context = context, payment = payment) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Filled.Share, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("مشاركة إيصال التحصيل")
+                        }
                     }
                 }
             }
