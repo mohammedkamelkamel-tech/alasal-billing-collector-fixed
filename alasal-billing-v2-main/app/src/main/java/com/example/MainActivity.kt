@@ -190,6 +190,11 @@ class MainActivity : ComponentActivity() {
                                 bills = bills,
                                 users = users,
                                 onAddBillClick = { navController.navigate("add_edit_bill") },
+                                onCollectionClick = {
+                                    navController.navigate("collection") {
+                                        launchSingleTop = true
+                                    }
+                                },
                                 onBillClick = { bill ->
                                     viewModel.selectBill(bill)
                                     navController.navigate("bill_details")
