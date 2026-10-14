@@ -167,4 +167,68 @@ object InvoiceImageGenerator {
             return null
         }
     }
+
+    /** ينشئ صورة إيصال تحصيل مستقلة بألوان مميزة عن صورة فاتورة الكهرباء. */
+    fun generatePaymentReceiptImage(context: Context, payment: com.example.data.model.PaymentEntity): File? {
+        try {
+            val width = 800
+            val height = 900
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            canvas.drawColor(Color.rgb(248, 250, 255))
+
+            val accent = Color.rgb(0, 121, 107) // أخضر مزرق: يميز إيصال التحصيل عن الفاتورة الزرقاء/السوداء
+            val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = accent; textSize = 38f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textAlign = Paint.Align.CENTER
+            }
+            val textRight = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(0, 77, 64); textSize = 27f; textAlign = Paint.Align.RIGHT
+            }
+            val textLeft = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(55, 71, 79); textSize = 27f; textAlign = Paint.Align.LEFT
+            }
+            val amountPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = accent; textSize = 34f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textAlign = Paint.Align.CENTER
+            }
+            val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent; strokeWidth = 3f }
+            canvas.drawRoundRect(24f, 24f, 776f, 876f, 28f, 28f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+            })
+            var y = 95f
+            canvas.drawText("محطة العسل", width / 2f, y, titlePaint); y += 55f
+            canvas.drawText("إيصال تحصيل كهرباء", width / 2f, y, titlePaint); y += 28f
+            canvas.drawLine(55f, y, 745f, y, linePaint); y += 58f
+
+            fun row(label: String, value: String) {
+                canvas.drawText(label, 745f, y, textRight)
+                canvas.drawText(value, 55f, y, textLeft)
+                y += 48f
+            }
+            row("اسم المشترك:", payment.userName.ifBlank { "غير مسجل" })
+            row("رقم الإيصال:", payment.receiptNumber.takeIf { it > 0 }?.toString() ?: "-")
+            row("رقم الفاتورة:", payment.invoiceNumber.ifBlank { "-" })
+            row("طريقة الدفع:", payment.method.ifBlank { "-" })
+            row("المحصّل:", payment.collectorName.ifBlank { "غير مسجل" })
+            row("تاريخ التحصيل:", payment.paymentDate.ifBlank { "-" })
+            y += 8f
+            canvas.drawLine(55f, y, 745f, y, linePaint); y += 58f
+            canvas.drawText("المبلغ المحصّل", width / 2f, y, textRight.apply { textAlign = Paint.Align.CENTER }); y += 55f
+            canvas.drawText(CurrencyFormatter.riyalFull(payment.amount), width / 2f, y, amountPaint); y += 60f
+            canvas.drawText("المتبقي بعد التحصيل: ${CurrencyFormatter.riyal(payment.afterRemaining.coerceAtLeast(0.0))}", width / 2f, y,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent; textSize = 26f; textAlign = Paint.Align.CENTER })
+            y += 58f
+            canvas.drawText("شكراً لكم", width / 2f, y, titlePaint)
+
+            val file = File(context.cacheDir, "payment_receipt_${payment.receiptNumber.takeIf { it > 0 } ?: System.currentTimeMillis()}.png")
+            FileOutputStream(file).use { it -> bitmap.compress(Bitmap.CompressFormat.PNG, 100, it); it.flush() }
+            bitmap.recycle()
+            return file
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return null
+        }
+    }
+
 }
