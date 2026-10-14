@@ -233,7 +233,26 @@ class MainActivity : ComponentActivity() {
                                     canPerformAction = { key -> viewModel.canPerformAction(key) },
                                     onPayClick = { bill, amount, method ->
                                         viewModel.payBill(bill.id, amount, method)
-                                        val remaining = (bill.remainingAmount.takeIf { it > 0.0 } ?: bill.totalAmount) - amount
+                                        // افتح واتساب مباشرة بعد تأكيد التحصيل، مع تجهيز الإيصال للمشترك نفسه.
+                                        val beforeRemaining = bill.remainingAmount.takeIf { it > 0.0 } ?: bill.totalAmount
+                                        val receipt = com.example.data.model.PaymentEntity(
+                                            billId = bill.id,
+                                            userId = bill.userId,
+                                            invoiceNumber = bill.invoiceNumber,
+                                            userName = bill.userName,
+                                            amount = amount,
+                                            method = method,
+                                            collectorName = currentAccessKey?.username.orEmpty(),
+                                            paymentDate = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date()),
+                                            beforeRemaining = beforeRemaining,
+                                            afterRemaining = (beforeRemaining - amount).coerceAtLeast(0.0)
+                                        )
+                                        com.example.utils.PrintHelper.sharePaymentReceipt(
+                                            context = this@MainActivity,
+                                            payment = receipt,
+                                            subscriberPhone = bill.userPhone
+                                        )
+                                        val remaining = beforeRemaining - amount
                                         val msg = when {
                                             remaining > 0.0 -> "تم تسجيل تحصيل جزئي، المتبقي ${com.example.utils.CurrencyFormatter.riyal(remaining)}"
                                             remaining < 0.0 -> "تم قبول المبلغ الزائد وأصبح رصيداً للمشترك"
