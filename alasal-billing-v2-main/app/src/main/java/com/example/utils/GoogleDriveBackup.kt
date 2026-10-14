@@ -97,7 +97,7 @@ object GoogleDriveBackup {
         }
         } catch (e: Exception) {
             android.util.Log.e("GoogleDriveBackup", "Drive upload failed", e)
-            saveError(context, "${e.javaClass.simpleName}: ${e.message ?: "unknown error"}")
+            saveError(context, "${e.javaClass.simpleName}: ${e.message ?: "unknown error"} | ${e.stackTrace.firstOrNull()?.toString().orEmpty()}")
             false
         }
     }
