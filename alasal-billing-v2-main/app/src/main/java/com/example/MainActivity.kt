@@ -200,6 +200,7 @@ class MainActivity : ComponentActivity() {
                             composable("bills") {
                                 BillingScreen(
                                     bills = bills,
+                                    payments = payments,
                                     users = users,
                                     canPerformAction = { key -> viewModel.canPerformAction(key) },
                                     searchQuery = searchQuery,
