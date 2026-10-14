@@ -37,29 +37,31 @@ jobs:
           set -e
           gradle --version
 
-      - name: Prepare signing keystore
+      - name: Restore stable debug keystore
+        id: keystore-cache
+        uses: actions/cache@v4
+        with:
+          path: alasal-billing-v2-main/debug.keystore
+          key: alasal-android-oauth-debug-keystore-v1
+
+      - name: Generate debug keystore if missing
+        if: steps.keystore-cache.outputs.cache-hit != 'true'
         shell: bash
-        working-directory: alasal-billing-v2-main
-        env:
-          ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
         run: |
           set -e
-          KEYSTORE="${{ github.workspace }}/alasal-billing-v2-main/debug.keystore"
-          if [ -n "$ANDROID_DEBUG_KEYSTORE_BASE64" ]; then
-            echo "$ANDROID_DEBUG_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
-            echo "Using the saved Android signing keystore from GitHub Actions secret."
-          else
-            echo "::warning::ANDROID_DEBUG_KEYSTORE_BASE64 is not configured. A temporary key will be generated; Google OAuth may fail because its SHA-1 changes between builds."
-            keytool -genkeypair -v \
-              -keystore "$KEYSTORE" \
-              -storepass android -keypass android \
-              -alias androiddebugkey \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
-          echo "Signing certificate SHA-1:"
-          keytool -list -v -keystore "$KEYSTORE" -storepass android -alias androiddebugkey | grep -E "SHA1:|SHA-1:"
+          keytool -genkeypair -v \
+            -keystore "$GITHUB_WORKSPACE/alasal-billing-v2-main/debug.keystore" \
+            -storepass android -keypass android \
+            -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
 
+      - name: Verify signing certificate SHA-1
+        shell: bash
+        run: |
+          keytool -list -v \
+            -keystore "$GITHUB_WORKSPACE/alasal-billing-v2-main/debug.keystore" \
+            -storepass android -alias androiddebugkey | grep -E 'SHA1:|SHA-1:'
       - name: Build Debug APK
         working-directory: alasal-billing-v2-main
         run: gradle :app:assembleDebug --stacktrace --no-daemon
