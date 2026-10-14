@@ -24,6 +24,11 @@ object GoogleDriveBackup {
     const val KEY_FOLDER_ID = "backup_drive_folder_id"
     private const val SCOPE = "https://www.googleapis.com/auth/drive.file"
     private const val FOLDER_NAME = "محطة العسل"
+    const val KEY_LAST_ERROR = "backup_drive_last_error"
+
+    private fun saveError(context: Context, message: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_LAST_ERROR, message.take(500)).apply()
+    }
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS).readTimeout(90, TimeUnit.SECONDS)
         .writeTimeout(90, TimeUnit.SECONDS).build()
@@ -59,6 +64,7 @@ object GoogleDriveBackup {
                 .put(file.asRequestBody("application/zip".toMediaType())).build()
             client.newCall(req).execute().use { response ->
                 android.util.Log.i("GoogleDriveBackup", "Upload existing file: HTTP ${response.code}")
+                if (!response.isSuccessful) saveError(context, "HTTP ${response.code}: ${response.peekBody(2048).string()}") else saveError(context, "")
                 response.isSuccessful
             }
         } else {
@@ -81,12 +87,15 @@ object GoogleDriveBackup {
                 .url("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name")
                 .header("Authorization", "Bearer $token").post(body).build()
             client.newCall(req).execute().use { response ->
-                android.util.Log.i("GoogleDriveBackup", "Create backup: HTTP ${response.code}; body=${response.peekBody(2048).string()}")
+                val responseBody = response.peekBody(2048).string()
+                android.util.Log.i("GoogleDriveBackup", "Create backup: HTTP ${response.code}; body=$responseBody")
+                if (!response.isSuccessful) saveError(context, "HTTP ${response.code}: $responseBody") else saveError(context, "")
                 response.isSuccessful
             }
         }
         } catch (e: Exception) {
             android.util.Log.e("GoogleDriveBackup", "Drive upload failed", e)
+            saveError(context, "${e.javaClass.simpleName}: ${e.message ?: "unknown error"}")
             false
         }
     }
