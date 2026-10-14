@@ -415,7 +415,7 @@ fun SettingsScreen(
 
             SettingsToggleRow(
                 title = "نسخة احتياطية يومية تلقائية",
-                subtitle = "إنشاء نسخة يومياً الساعة 2 صباحاً وحفظها في المجلد المحدد، وGoogle Drive إذا تم ربطه",
+                subtitle = "إنشاء نسخة يومياً قرابة الساعة 2 صباحاً. تُحفظ نسخة داخل التطبيق دائماً، وتُنسخ إلى المجلد المحلي وGoogle Drive إذا تم ربطهما.",
                 checked = autoBackupEnabled,
                 onCheckedChange = { enabled ->
                     autoBackupEnabled = enabled
@@ -447,7 +447,7 @@ fun SettingsScreen(
             ) {
                 Column(Modifier.weight(1f)) {
                     Text("مجلد النسخ الاحتياطي في Google Drive", style = MaterialTheme.typography.titleSmall)
-                    Text(if (driveTreeUri.isBlank()) "حدد مجلداً داخل حساب Google Drive مرة واحدة، وبعدها يتم الرفع تلقائياً" else "تم ربط Google Drive للنسخ اليومية التلقائية", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                    Text(if (driveTreeUri.isBlank()) "اضغط هنا واختر Google Drive ثم مجلد النسخ مرة واحدة؛ سيحاول التطبيق رفع النسخة يومياً تلقائياً" else "تم حفظ مجلد النسخ المحدد؛ سيُعاد رفع النسخ تلقائياً، مع الاحتفاظ بنسخة داخل التطبيق", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                 }
                 Icon(Icons.Filled.CloudUpload, contentDescription = "Google Drive", tint = ElectricBlue)
             }
