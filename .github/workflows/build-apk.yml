@@ -24,7 +24,17 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
-      - name: Generate debug keystore
+      # Reuse the same debug keystore across builds so the OAuth SHA-1
+      # remains stable while this cache entry is retained.
+      - name: Restore stable debug keystore
+        id: keystore-cache
+        uses: actions/cache@v4
+        with:
+          path: alasal-billing-v2-main/debug.keystore
+          key: alasal-android-oauth-debug-keystore-v1
+
+      - name: Generate debug keystore if missing
+        if: steps.keystore-cache.outputs.cache-hit != 'true'
         run: |
           keytool -genkeypair -v \
             -keystore "$GITHUB_WORKSPACE/alasal-billing-v2-main/debug.keystore" \
@@ -35,6 +45,13 @@ jobs:
             -keysize 2048 \
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Print OAuth SHA-1 fingerprint
+        run: |
+          keytool -list -v \
+            -keystore "$GITHUB_WORKSPACE/alasal-billing-v2-main/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey | grep -E 'SHA1:|SHA-1:'
 
       - name: Build Debug APK
         working-directory: alasal-billing-v2-main
