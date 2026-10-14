@@ -12,6 +12,7 @@ import android.print.PrintDocumentInfo
 import android.print.PrintManager
 import com.example.data.model.BillEntity
 import com.example.data.model.BillStatus
+import com.example.data.model.PaymentEntity
 import java.io.FileOutputStream
 
 object PrintHelper {
@@ -191,4 +192,32 @@ object PrintHelper {
             android.widget.Toast.makeText(context, "لم يتم العثور على تطبيق مناسب للمشاركة", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
+    /** مشاركة إيصال تحصيل مستقل كنص جاهز للإرسال عبر واتساب أو أي تطبيق مشاركة. */
+    fun sharePaymentReceipt(context: Context, payment: PaymentEntity) {
+        val receiptText = """
+            💰 *إيصال تحصيل كهرباء*
+            
+            👤 *اسم المشترك:* ${payment.userName.ifBlank { "غير مسجل" }}
+            🧾 *رقم الإيصال:* ${payment.receiptNumber.takeIf { it > 0 } ?: "-"}
+            📄 *رقم الفاتورة:* ${payment.invoiceNumber.ifBlank { "-" }}
+            💵 *المبلغ المحصّل:* ${CurrencyFormatter.riyal(payment.amount)}
+            💳 *طريقة الدفع:* ${payment.method}
+            👨‍💼 *المحصّل:* ${payment.collectorName.ifBlank { "غير مسجل" }}
+            📅 *تاريخ التحصيل:* ${payment.paymentDate.ifBlank { "-" }}
+            💰 *المتبقي بعد التحصيل:* ${CurrencyFormatter.riyal(payment.afterRemaining.coerceAtLeast(0.0))}
+            
+            شكراً لكم.
+        """.trimIndent()
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "إيصال تحصيل - ${payment.receiptNumber}")
+            putExtra(Intent.EXTRA_TEXT, receiptText)
+        }
+        try {
+            context.startActivity(Intent.createChooser(intent, "مشاركة إيصال التحصيل عبر واتساب أو تطبيق آخر"))
+        } catch (_: Exception) {
+            android.widget.Toast.makeText(context, "تعذرت مشاركة إيصال التحصيل", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
 }
