@@ -11,6 +11,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Headers
 import org.json.JSONObject
 import java.io.File
 import java.net.URLEncoder
@@ -56,20 +57,38 @@ object GoogleDriveBackup {
                 .url("https://www.googleapis.com/upload/drive/v3/files/$existingId?uploadType=media")
                 .header("Authorization", "Bearer $token")
                 .put(file.asRequestBody("application/zip".toMediaType())).build()
-            client.newCall(req).execute().use { it.isSuccessful }
+            client.newCall(req).execute().use { response ->
+                android.util.Log.i("GoogleDriveBackup", "Upload existing file: HTTP ${response.code}")
+                response.isSuccessful
+            }
         } else {
             val metadata = JSONObject().put("name", fileName).put("mimeType", "application/zip")
                 .put("parents", org.json.JSONArray().put(folderId)).toString()
                 .toRequestBody("application/json; charset=utf-8".toMediaType())
-            val body = MultipartBody.Builder().setType(MultipartBody.FORM)
-                .addFormDataPart("metadata", null, metadata)
-                .addFormDataPart("file", fileName, file.asRequestBody("application/zip".toMediaType())).build()
+            // Drive API multipart uploads require multipart/related, not multipart/form-data.
+            val body = MultipartBody.Builder()
+                .setType("related".toMediaType())
+                .addPart(
+                    Headers.headersOf("Content-Type", "application/json; charset=UTF-8"),
+                    metadata
+                )
+                .addPart(
+                    Headers.headersOf("Content-Type", "application/zip"),
+                    file.asRequestBody("application/zip".toMediaType())
+                )
+                .build()
             val req = Request.Builder()
                 .url("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name")
                 .header("Authorization", "Bearer $token").post(body).build()
-            client.newCall(req).execute().use { it.isSuccessful }
+            client.newCall(req).execute().use { response ->
+                android.util.Log.i("GoogleDriveBackup", "Create backup: HTTP ${response.code}; body=${response.peekBody(2048).string()}")
+                response.isSuccessful
+            }
         }
-        } catch (_: Exception) { false }
+        } catch (e: Exception) {
+            android.util.Log.e("GoogleDriveBackup", "Drive upload failed", e)
+            false
+        }
     }
 
     private fun ensureFolder(token: String, savedId: String?): String? {
