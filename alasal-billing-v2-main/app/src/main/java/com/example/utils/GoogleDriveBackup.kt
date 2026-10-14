@@ -54,9 +54,9 @@ object GoogleDriveBackup {
 
     suspend fun uploadWithToken(context: Context, token: String, file: File, fileName: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            if (!file.exists() || file.length() <= 0L) return false
+            if (!file.exists() || file.length() <= 0L) return@withContext false
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val folderId = ensureFolder(token, prefs.getString(KEY_FOLDER_ID, null)) ?: return false
+        val folderId = ensureFolder(token, prefs.getString(KEY_FOLDER_ID, null)) ?: return@withContext false
         prefs.edit().putString(KEY_FOLDER_ID, folderId).apply()
         val existingId = findFile(token, folderId, fileName)
         if (existingId != null) {
