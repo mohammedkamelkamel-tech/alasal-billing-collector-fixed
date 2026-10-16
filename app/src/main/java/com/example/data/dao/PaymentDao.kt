@@ -24,6 +24,9 @@ interface PaymentDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(payment: PaymentEntity): Long
 
+    @androidx.room.Update
+    suspend fun update(payment: PaymentEntity): Int
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(payments: List<PaymentEntity>)
 
