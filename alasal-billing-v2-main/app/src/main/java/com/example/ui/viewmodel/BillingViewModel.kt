@@ -368,6 +368,41 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+
+    fun isLocalPasswordSet(): Boolean = accessKeyRepository.isPasswordSet()
+    fun isBiometricLoginEnabled(): Boolean = accessKeyRepository.isBiometricEnabled()
+    fun setBiometricLoginEnabled(enabled: Boolean) = accessKeyRepository.setBiometricEnabled(enabled)
+    fun saveLocalPassword(password: String): Boolean = accessKeyRepository.setLocalPassword(password)
+    fun verifyLocalPassword(password: String): Boolean = accessKeyRepository.verifyLocalPassword(password)
+
+    suspend fun loginWithLocalPassword(password: String): Pair<Boolean, String> {
+        if (!accessKeyRepository.verifyLocalPassword(password)) return false to "كلمة المرور غير صحيحة"
+        val adminKey = accessKeyRepository.getAllLocalAccessKeys().firstOrNull { it.role.equals("ADMIN", true) && it.active }
+            ?: return false to "تعذر العثور على حساب الإدارة المحلي"
+        if (!adminDeviceSecurity.isAdminDevice()) {
+            if (localNetworkSync.adminPresentOnNetwork()) return false to "يوجد جهاز إدارة آخر على الشبكة؛ تعذر اعتماد هذا الجهاز."
+            if (!adminDeviceSecurity.bindAsAdminDevice()) return false to "تعذر اعتماد هذا الجهاز كجهاز الإدارة"
+        }
+        currentAccessKey.value = adminKey
+        localNetworkSync.setSessionAccessKey(adminKey)
+        localNetworkSync.startAsAdmin()
+        return true to "تم تسجيل الدخول بنجاح"
+    }
+
+    suspend fun loginWithBiometric(): Pair<Boolean, String> {
+        if (!accessKeyRepository.isBiometricEnabled()) return false to "تسجيل الدخول بالبصمة غير مفعّل من الإعدادات"
+        val adminKey = accessKeyRepository.getAllLocalAccessKeys().firstOrNull { it.role.equals("ADMIN", true) && it.active }
+            ?: return false to "تعذر العثور على حساب الإدارة المحلي"
+        if (!adminDeviceSecurity.isAdminDevice()) {
+            if (localNetworkSync.adminPresentOnNetwork()) return false to "يوجد جهاز إدارة آخر على الشبكة؛ تعذر اعتماد هذا الجهاز."
+            if (!adminDeviceSecurity.bindAsAdminDevice()) return false to "تعذر اعتماد هذا الجهاز كجهاز الإدارة"
+        }
+        currentAccessKey.value = adminKey
+        localNetworkSync.setSessionAccessKey(adminKey)
+        localNetworkSync.startAsAdmin()
+        return true to "تم تسجيل الدخول بالبصمة"
+    }
+
     /**
      * Dynamic Permission Check for UI & Repository logic
      */
