@@ -3,14 +3,18 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [ main, subscriber-validation-password-biometric ]
+    branches: [main, subscriber-validation-password-biometric]
+
+permissions:
+  contents: read
 
 jobs:
   build-apk:
+    name: Build APK from current project root
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout project
+      - name: Checkout current repository revision
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
@@ -18,8 +22,9 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
 
-      - name: Set up Gradle 9.3.1
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "9.3.1"
@@ -28,7 +33,7 @@ jobs:
         id: keystore-cache
         uses: actions/cache@v4
         with:
-          path: alasal-billing-v2-main/debug.keystore
+          path: debug.keystore
           key: alasal-android-oauth-debug-keystore-v1
 
       - name: Generate debug keystore if missing
@@ -37,26 +42,45 @@ jobs:
         run: |
           set -e
           keytool -genkeypair -v \
-            -keystore "$GITHUB_WORKSPACE/alasal-billing-v2-main/debug.keystore" \
+            -keystore "$GITHUB_WORKSPACE/debug.keystore" \
             -storepass android -keypass android \
             -alias androiddebugkey \
             -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Verify signing certificate SHA-1
+      - name: Verify signing certificate
         shell: bash
         run: |
-          keytool -list -v \
-            -keystore "$GITHUB_WORKSPACE/alasal-billing-v2-main/debug.keystore" \
+          keytool -list -v -keystore "$GITHUB_WORKSPACE/debug.keystore" \
             -storepass android -alias androiddebugkey | grep -E 'SHA1:|SHA-1:'
-      - name: Build Debug APK
-        working-directory: alasal-billing-v2-main
+
+      - name: Verify project files
+        shell: bash
+        run: |
+          set -e
+          test -f settings.gradle.kts
+          test -f app/build.gradle.kts
+          test -f app/src/main/java/com/example/ui/screens/CollectionScreen.kt
+          grep -q 'بحث برقم الفاتورة' app/src/main/java/com/example/ui/screens/CollectionScreen.kt
+          grep -q 'تحصيلات \$selectedSubscriberName' app/src/main/java/com/example/ui/screens/CollectionScreen.kt
+
+      - name: Build Debug APK from repository root
         run: gradle :app:assembleDebug --stacktrace --no-daemon
 
-      - name: Upload APK
+      - name: Verify APK output
+        shell: bash
+        run: |
+          set -e
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          ls -lh "$APK"
+          sha256sum "$APK"
+          aapt dump badging "$APK" | grep -E "package: name=|application-label:"
+
+      - name: Upload APK built from current source
         uses: actions/upload-artifact@v4
         with:
-          name: alasal-billing-debug-apk
-          path: alasal-billing-v2-main/app/build/outputs/apk/debug/*.apk
+          name: ElectricityBillingAp-debug-current-source
+          path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
