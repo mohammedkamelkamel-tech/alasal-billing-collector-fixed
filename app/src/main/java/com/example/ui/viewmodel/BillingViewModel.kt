@@ -847,12 +847,12 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
                     afterRemaining = updatedBill.remainingAmount,
                     receiptNumber = 0L
                 )
-                repository.insertPayment(payment)
+                val numberedPayment = repository.insertPaymentWithReceiptNumber(payment)
                 selectedBill.value = updatedBill
                 refreshDataNow()
 
                 // مزامنة العملية نفسها، وليس حالة فاتورة قديمة من جهاز المحصل.
-                val synced = localNetworkSync.registerPayment(payment)
+                val synced = localNetworkSync.registerPayment(numberedPayment)
                 lastSyncError.value = if (synced) null else "تعذّرت مزامنة إيصال التحصيل مع الإدارة؛ سيبقى محفوظاً على الجهاز حتى تتوفر المزامنة"
                 onCompleted(updatedBill, amountPaid, method)
             }
