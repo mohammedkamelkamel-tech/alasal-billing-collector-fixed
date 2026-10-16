@@ -38,6 +38,32 @@ fun BillDetailsScreen(
     canEdit: Boolean = false // 👈 صلاحية تعديل الفاتورة (المسؤول فقط)
 ) {
     val context = LocalContext.current
+    var pendingSms by remember { mutableStateOf(false) }
+    val smsPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted && pendingSms) {
+            try {
+                com.example.utils.SimSmsSender.send(
+                    context,
+                    bill.userPhone,
+                    com.example.utils.SimSmsSender.invoiceMessage(
+                        bill.invoiceNumber, bill.userName, bill.remainingAmount.coerceAtLeast(0.0),
+                        when (context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE).getString("setting_currency", "ريال يمني")) {
+                            "ريال سعودي" -> "SAR"
+                            "دولار أمريكي" -> "USD"
+                            else -> "YER"
+                        },
+                        bill.dueDate
+                    )
+                )
+                Toast.makeText(context, "تم إرسال رسالة الفاتورة عبر الشريحة", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "تعذر إرسال SMS: " + (e.message ?: "خطأ غير معروف"), Toast.LENGTH_LONG).show()
+            }
+        }
+        pendingSms = false
+    }
     val statusEnum = BillStatus.fromString(bill.status)
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showPaymentDialog by remember { mutableStateOf(false) }
@@ -115,6 +141,44 @@ fun BillDetailsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        item {
+            OutlinedButton(
+                onClick = {
+                    if (bill.userPhone.isBlank()) {
+                        Toast.makeText(context, "لا يوجد رقم هاتف للمشترك", Toast.LENGTH_SHORT).show()
+                    } else if (!context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE).getBoolean("sim_sms_enabled", false)) {
+                        Toast.makeText(context, "فعّل إرسال SMS عبر الشريحة من الإعدادات أولاً", Toast.LENGTH_LONG).show()
+                    } else if (com.example.utils.SimSmsSender.hasPermission(context)) {
+                        try {
+                            com.example.utils.SimSmsSender.send(
+                                context, bill.userPhone,
+                                com.example.utils.SimSmsSender.invoiceMessage(
+                                    bill.invoiceNumber, bill.userName, bill.remainingAmount.coerceAtLeast(0.0),
+                                    when (context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE).getString("setting_currency", "ريال يمني")) {
+                                        "ريال سعودي" -> "SAR"
+                                        "دولار أمريكي" -> "USD"
+                                        else -> "YER"
+                                    },
+                                    bill.dueDate
+                                )
+                            )
+                            Toast.makeText(context, "تم إرسال رسالة الفاتورة عبر الشريحة", Toast.LENGTH_LONG).show()
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "تعذر إرسال SMS: " + (e.message ?: "خطأ غير معروف"), Toast.LENGTH_LONG).show()
+                        }
+                    } else {
+                        pendingSms = true
+                        smsPermissionLauncher.launch(android.Manifest.permission.SEND_SMS)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Filled.Sms, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("إرسال تفاصيل الفاتورة SMS")
+            }
+        }
+
         item {
             // Header Title Card
             Card(
