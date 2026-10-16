@@ -8,7 +8,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +32,7 @@ fun CollectionScreen(
     onWhatsAppClick: (BillEntity) -> Unit
 ) {
     var selectedBill by remember { mutableStateOf<BillEntity?>(null) }
+    var invoiceSearch by remember { mutableStateOf("") }
 
     selectedBill?.let { bill ->
         PaymentDialog(
@@ -42,10 +45,18 @@ fun CollectionScreen(
         )
     }
 
-    val pending = bills.filter { it.status != "PAID" && it.status != "CARRIED" && (it.remainingAmount > 0.0 || it.paidAmount <= 0.0) }
-        .sortedByDescending { it.createdAt }
+    val query = invoiceSearch.trim()
+    val pending = bills.filter {
+        it.status != "PAID" && it.status != "CARRIED" &&
+            (it.remainingAmount > 0.0 || it.paidAmount <= 0.0) &&
+            (query.isBlank() || it.invoiceNumber.contains(query, ignoreCase = true) ||
+                it.userName.contains(query, ignoreCase = true))
+    }.sortedByDescending { it.createdAt }
     // كل إيصال يظهر كسجل مستقل، حتى لو كانت الفاتورة نفسها دُفعت على عدة دفعات.
-    val collected = payments.sortedByDescending { it.paymentAt }
+    val collected = payments.filter {
+        query.isBlank() || it.invoiceNumber.contains(query, ignoreCase = true) ||
+            it.receiptNumber.toString().contains(query) || it.userName.contains(query, ignoreCase = true)
+    }.sortedByDescending { it.paymentAt }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -69,6 +80,23 @@ fun CollectionScreen(
                     }
                 }
             }
+        }
+
+        item {
+            OutlinedTextField(
+                value = invoiceSearch,
+                onValueChange = { invoiceSearch = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("بحث برقم الفاتورة") },
+                placeholder = { Text("أدخل رقم الفاتورة أو رقم الإيصال أو اسم المشترك") },
+                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "بحث") },
+                trailingIcon = {
+                    if (invoiceSearch.isNotBlank()) {
+                        TextButton(onClick = { invoiceSearch = "" }) { Text("مسح") }
+                    }
+                }
+            )
         }
 
         item {
