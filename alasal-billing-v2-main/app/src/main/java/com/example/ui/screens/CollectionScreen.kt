@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -31,6 +32,7 @@ fun CollectionScreen(
 ) {
     val context = LocalContext.current
     var selectedBill by remember { mutableStateOf<BillEntity?>(null) }
+    var selectedSubscriber by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     selectedBill?.let { bill ->
         PaymentDialog(
@@ -39,6 +41,54 @@ fun CollectionScreen(
             onConfirm = { amount, method ->
                 onPayClick(bill, amount, method)
                 selectedBill = null
+            }
+        )
+    }
+
+    selectedSubscriber?.let { (subscriberId, subscriberName) ->
+        val subscriberPayments = payments
+            .filter { it.userId == subscriberId || (it.userName.equals(subscriberName, ignoreCase = true) && subscriberName.isNotBlank()) }
+            .sortedByDescending { it.paymentAt }
+        AlertDialog(
+            onDismissRequest = { selectedSubscriber = null },
+            title = { Text("تحصيلات $subscriberName") },
+            text = {
+                if (subscriberPayments.isEmpty()) {
+                    Text("لا توجد تحصيلات مسجلة لهذا المشترك.")
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 420.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(subscriberPayments, key = { "subscriber-payment-${it.id}" }) { payment ->
+                            Card {
+                                Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text("إيصال رقم ${payment.receiptNumber.takeIf { it > 0 } ?: "غير محدد"}", fontWeight = FontWeight.Bold)
+                                    Text("فاتورة رقم ${payment.invoiceNumber}")
+                                    Text("المبلغ: ${CurrencyFormatter.riyal(payment.amount)}")
+                                    Text("التاريخ: ${payment.paymentDate.ifBlank { "-" }} • الطريقة: ${payment.method}")
+                                    Text("المتبقي: ${CurrencyFormatter.riyal(payment.afterRemaining.coerceAtLeast(0.0))}")
+                                    OutlinedButton(
+                                        onClick = {
+                                            val phone = bills.firstOrNull { it.id == payment.billId }?.userPhone
+                                                ?: bills.firstOrNull { it.userId == payment.userId }?.userPhone
+                                                ?: ""
+                                            com.example.utils.PrintHelper.sharePaymentReceipt(context = context, payment = payment, subscriberPhone = phone)
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(Icons.Filled.Share, contentDescription = null)
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("مشاركة الإيصال")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { selectedSubscriber = null }) { Text("إغلاق") }
             }
         )
     }
@@ -87,7 +137,14 @@ fun CollectionScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(bill.userName.ifBlank { "مشترك" }, fontWeight = FontWeight.Bold)
+                            Text(
+                                bill.userName.ifBlank { "مشترك" },
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.clickable {
+                                    selectedSubscriber = bill.userId to bill.userName.ifBlank { "مشترك" }
+                                }
+                            )
                             Text("فاتورة ${bill.invoiceNumber}", style = MaterialTheme.typography.labelSmall)
                             Text("المطلوب: ${CurrencyFormatter.riyal(bill.remainingAmount.takeIf { it > 0 } ?: bill.totalAmount)}", color = MaterialTheme.colorScheme.error)
                             if (bill.paidAmount > 0) {
