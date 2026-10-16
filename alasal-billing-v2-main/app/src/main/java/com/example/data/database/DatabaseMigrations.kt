@@ -194,3 +194,19 @@ val MIGRATION_11_12 = object : Migration(11, 12) {
         """.trimIndent())
     }
 }
+
+
+/** إضافة رقم ختم العداد للمشترك مع الحفاظ على بيانات قاعدة البيانات الحالية. */
+val MIGRATION_12_13 = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        val cursor = db.query("PRAGMA table_info(users)")
+        var exists = false
+        cursor.use {
+            val nameIndex = it.getColumnIndex("name")
+            while (it.moveToNext()) {
+                if (nameIndex >= 0 && it.getString(nameIndex) == "meterSealNumber") exists = true
+            }
+        }
+        if (!exists) db.execSQL("ALTER TABLE users ADD COLUMN meterSealNumber TEXT NOT NULL DEFAULT ''")
+    }
+}
