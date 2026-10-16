@@ -257,7 +257,8 @@ fun BillingScreen(
                             canPay = canPerformAction(PermissionKeys.CAN_PAY_BILL),
                             onClick = { onBillClick(bill) },
                             onPayClick = { payingBill = bill },
-                            onPrintClick = { com.example.utils.PrintHelper.printBill(context, bill) }
+                            onPrintClick = { com.example.utils.PrintHelper.printBill(context, bill) },
+                            onWhatsAppClick = { onWhatsAppClick(bill) }
                         )
                     }
                 }
@@ -453,7 +454,7 @@ fun DetailedBillCard(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Icon(imageVector = Icons.Filled.WhatsApp, contentDescription = "واتساب", modifier = Modifier.size(16.dp))
+                    Icon(imageVector = Icons.Filled.Send, contentDescription = "واتساب", modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("واتساب", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                 }
