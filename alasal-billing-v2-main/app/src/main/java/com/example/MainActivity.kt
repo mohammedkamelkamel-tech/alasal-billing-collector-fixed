@@ -304,8 +304,8 @@ class MainActivity : ComponentActivity() {
                                     onSearchQueryChange = { viewModel.setSearchQuery(it) },
                                     roleFilter = userRoleFilter,
                                     onRoleFilterChange = { viewModel.setUserRoleFilter(it) },
-                                    onAddUser = { name, email, role, phone, address, meterNumber, unitPrice ->
-                                        viewModel.addUser(name, email, role, phone, address, meterNumber, unitPrice)
+                                    onAddUser = { name, subscriberNumber, role, phone, address, meterNumber, meterSealNumber, unitPrice ->
+                                        viewModel.addUser(name, subscriberNumber, role, phone, address, meterNumber, meterSealNumber, unitPrice)
                                     },
                                     onToggleUserStatus = { id, currentStatus ->
                                         viewModel.toggleUserStatus(id, currentStatus)
