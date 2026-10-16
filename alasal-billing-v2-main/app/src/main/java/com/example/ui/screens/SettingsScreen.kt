@@ -56,6 +56,12 @@ fun SettingsScreen(
     val coroutineScope = rememberCoroutineScope()
 
     var driveApiConnected by remember { mutableStateOf(viewModel.getPreferenceBoolean("backup_drive_api_enabled", false)) }
+    var showPasswordDialog by remember { mutableStateOf(false) }
+    var oldPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmNewPassword by remember { mutableStateOf("") }
+    var passwordDialogError by remember { mutableStateOf("") }
+    var biometricEnabled by remember { mutableStateOf(viewModel.isBiometricLoginEnabled()) }
 
     val driveAuthorizationLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
