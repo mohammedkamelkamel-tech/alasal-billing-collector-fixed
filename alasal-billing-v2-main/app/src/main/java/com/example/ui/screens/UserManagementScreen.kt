@@ -445,13 +445,6 @@ fun AddUserDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = meterSealNumber,
-                    onValueChange = { meterSealNumber = it },
-                    label = { Text("رقم ختم العداد") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
                     value = unitPrice,
                     onValueChange = { unitPrice = it.filter { c -> c.isDigit() || c == '.' } },
                     label = { Text("سعر الكيلوواط للمشترك") },
@@ -526,7 +519,7 @@ fun EditUserDialog(
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("البريد الإلكتروني") },
+                    label = { Text("رقم المشترك") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -548,6 +541,13 @@ fun EditUserDialog(
                     value = meterNumber,
                     onValueChange = { meterNumber = it },
                     label = { Text("رقم العداد") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = meterSealNumber,
+                    onValueChange = { meterSealNumber = it },
+                    label = { Text("رقم ختم العداد") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
