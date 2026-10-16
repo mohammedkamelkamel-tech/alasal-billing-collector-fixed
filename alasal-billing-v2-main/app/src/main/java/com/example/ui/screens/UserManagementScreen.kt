@@ -387,6 +387,7 @@ fun AddUserDialog(
     onDismiss: () -> Unit,
     onConfirm: (name: String, subscriberNumber: String, role: String, phone: String, address: String, meterNumber: String, meterSealNumber: String, unitPrice: Double) -> Unit
 ) {
+    val context = LocalContext.current
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
@@ -501,6 +502,7 @@ fun EditUserDialog(
     onDismiss: () -> Unit,
     onConfirm: (UserEntity) -> Unit
 ) {
+    val context = LocalContext.current
     var name by remember { mutableStateOf(user.name) }
     var email by remember { mutableStateOf(user.email) }
     var phone by remember { mutableStateOf(user.phone) }
