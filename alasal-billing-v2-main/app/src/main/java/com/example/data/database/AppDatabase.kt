@@ -18,7 +18,7 @@ import com.example.data.model.UserEntity
 
 @Database(
     entities = [UserEntity::class, BillEntity::class, RolePermissionEntity::class, MeterReadingEntity::class, ReadingReminderEntity::class, PaymentEntity::class],
-    version = 12, // إضافة اسم المحصل لكل عملية تحصيل
+    version = 13, // إضافة رقم ختم العداد للمشترك
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -41,7 +41,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "electricity_billing_db"
                 )
                     // 👈 ترحيل حقيقي يحافظ على بيانات الفواتير القديمة بدل حذفها
-                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
+                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
                     // يبقى كشبكة أمان فقط للإصدارات القديمة جداً غير المُغطّاة بترحيل
                     .fallbackToDestructiveMigration()
                     .build()
