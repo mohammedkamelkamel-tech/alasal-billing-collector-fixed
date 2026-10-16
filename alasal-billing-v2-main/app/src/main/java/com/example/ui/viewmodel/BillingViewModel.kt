@@ -24,6 +24,8 @@ import com.example.data.repository.KeyVerificationResult
 import com.example.service.LocalNetworkSync
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -165,6 +167,7 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val prefs = application.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+    private val receiptNumberMutex = Mutex()
 
     val darkTheme = MutableStateFlow(prefs.getBoolean("setting_dark_theme", false))
 
@@ -775,7 +778,7 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
                     beforeRemaining = beforeBill.remainingAmount.takeIf { it > 0 } ?: beforeBill.totalAmount,
                     afterRemaining = updatedBill.remainingAmount,
                     // رقم إيصال مستقل ومتسلسل، لا يعاد استخدامه حتى بعد حذف التحصيلات.
-                    receiptNumber = run {
+                    receiptNumber = receiptNumberMutex.withLock {
                         val highestStoredReceipt = repository.allPayments.first()
                             .maxOfOrNull { it.receiptNumber } ?: 0L
                         val nextReceiptNumber = maxOf(prefs.getLong("last_receipt_number", 0L), highestStoredReceipt) + 1L
