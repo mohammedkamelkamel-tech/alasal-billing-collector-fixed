@@ -51,9 +51,14 @@ fun CollectionScreen(
 
     if (selectedSubscriberId != null) {
         val subscriberPayments = payments.filter { payment ->
-            if (!selectedSubscriberId.isNullOrBlank()) payment.userId == selectedSubscriberId
-            else payment.userName.equals(selectedSubscriberName, ignoreCase = true)
-        }.sortedByDescending { it.paymentAt }
+            if (!selectedSubscriberId.isNullOrBlank()) {
+                // استخدم المعرّف أولاً، مع تضمين السجلات القديمة التي لم يُحفظ فيها userId.
+                payment.userId == selectedSubscriberId ||
+                    (payment.userId.isBlank() && payment.userName.equals(selectedSubscriberName, ignoreCase = true))
+            } else {
+                payment.userName.equals(selectedSubscriberName, ignoreCase = true)
+            }
+        }.sortedWith(compareByDescending<PaymentEntity> { it.paymentAt }.thenByDescending { it.receiptNumber })
         AlertDialog(
             onDismissRequest = { selectedSubscriberId = null; selectedSubscriberName = "" },
             title = { Text("تحصيلات $selectedSubscriberName") },
