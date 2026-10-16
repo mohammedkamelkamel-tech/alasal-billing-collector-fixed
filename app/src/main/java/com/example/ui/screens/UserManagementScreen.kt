@@ -48,6 +48,7 @@ fun UserManagementScreen(
     onDeleteUser: (UserEntity) -> Unit,
     onUpdateUser: (UserEntity) -> Unit = {},
     onUpdateUnitPriceForEveryone: (Double) -> Unit = {},
+    onAccountStatement: (UserEntity) -> Unit = {},
     // 👈 فواتير النظام: تُستخدم لحساب المستحقات لكل مشترك وتحديثها تلقائياً
     bills: List<BillEntity> = emptyList()
 ) {
@@ -187,7 +188,8 @@ fun UserManagementScreen(
                                 editingUser = user
                                 showEditUserDialog = true
                             },
-                            onDeleteClick = { onDeleteUser(user) }
+                            onDeleteClick = { onDeleteUser(user) },
+                            onAccountStatement = { onAccountStatement(user) }
                         )
                     }
                 }
@@ -269,7 +271,8 @@ fun UserCard(
     onCardClick: () -> Unit = {},
     onStatusToggle: () -> Unit,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onAccountStatement: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
@@ -384,7 +387,10 @@ fun UserCard(
                         )
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onAccountStatement) {
+                            Icon(Icons.Filled.ReceiptLong, contentDescription = "كشف الحساب", tint = MaterialTheme.colorScheme.primary)
+                        }
                         // زر التعديل يظهر فقط للمشرف
                         if (isSupervisor) {
                             IconButton(onClick = onEditClick) {
