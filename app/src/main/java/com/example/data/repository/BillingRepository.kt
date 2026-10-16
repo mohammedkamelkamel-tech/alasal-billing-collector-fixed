@@ -11,6 +11,9 @@ import com.example.data.model.RolePermissionEntity
 import com.example.data.model.PaymentEntity
 import com.example.data.model.UserEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class BillingRepository(
     private val userDao: UserDao,
@@ -20,6 +23,7 @@ class BillingRepository(
     private val readingReminderDao: com.example.data.dao.ReadingReminderDao,
     private val paymentDao: com.example.data.dao.PaymentDao
 ) {
+    private val receiptMutex = Mutex()
     val allUsers: Flow<List<UserEntity>> = userDao.getAllUsers()
     val allBills: Flow<List<BillEntity>> = billDao.getAllBills()
     val allMeterReadings: Flow<List<MeterReadingEntity>> = meterReadingDao.getAll()
@@ -64,6 +68,13 @@ class BillingRepository(
     suspend fun updateBill(bill: BillEntity) = billDao.updateBill(bill)
     suspend fun deleteBill(bill: BillEntity) = billDao.deleteBill(bill)
     suspend fun insertPayment(payment: PaymentEntity) = paymentDao.insert(payment)
+
+    /** يحجز رقم إيصال فريد لكل عملية تحصيل محفوظة محلياً. */
+    suspend fun insertPaymentWithReceiptNumber(payment: PaymentEntity): PaymentEntity = receiptMutex.withLock {
+        val numbered = payment.copy(receiptNumber = paymentDao.nextReceiptNumber())
+        paymentDao.insert(numbered)
+        numbered
+    }
     suspend fun getPaymentsForBill(billId: String): List<PaymentEntity> = paymentDao.getForBill(billId)
 
     suspend fun markBillCarriedForward(id: String) = billDao.markBillCarriedForward(id)
