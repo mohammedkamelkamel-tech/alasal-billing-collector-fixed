@@ -2,7 +2,7 @@ package com.example
 
 import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -28,7 +28,7 @@ import com.example.ui.screens.*
 import com.example.ui.theme.ElectricityBillingTheme
 import com.example.ui.viewmodel.BillingViewModel
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -184,7 +184,11 @@ class MainActivity : ComponentActivity() {
                     ) {
                         composable("login") {
                             LoginScreen(
-                                onLoginWithKey = { keyInput -> viewModel.loginWithSecretKey(keyInput) },
+                                passwordIsSet = viewModel.isLocalPasswordSet(),
+                                biometricEnabled = viewModel.isBiometricLoginEnabled(),
+                                onSavePassword = { password -> viewModel.saveLocalPassword(password) },
+                                onLoginWithPassword = { password -> viewModel.loginWithLocalPassword(password) },
+                                onLoginWithBiometric = { viewModel.loginWithBiometric() },
                                 onLoginSuccess = {
                                     navController.navigate("home") {
                                         popUpTo("login") { inclusive = true }
