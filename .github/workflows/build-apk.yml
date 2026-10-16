@@ -54,34 +54,35 @@ jobs:
           keytool -list -v -keystore "$GITHUB_WORKSPACE/debug.keystore" \
             -storepass android -alias androiddebugkey | grep -E 'SHA1:|SHA-1:'
 
-      - name: Verify project files
+      - name: Verify original app project
         shell: bash
         run: |
           set -e
+          cd alasal-billing-v2-main
           test -f settings.gradle.kts
           test -f app/build.gradle.kts
-          test -f app/src/main/java/com/example/ui/screens/CollectionScreen.kt
-          grep -q 'بحث برقم الفاتورة' app/src/main/java/com/example/ui/screens/CollectionScreen.kt
-          grep -q 'تحصيلات \$selectedSubscriberName' app/src/main/java/com/example/ui/screens/CollectionScreen.kt
+          grep -q 'passwordIsSet' app/src/main/java/com/example/ui/screens/LoginScreen.kt
+          grep -q 'BiometricPrompt' app/src/main/java/com/example/ui/screens/LoginScreen.kt
+          cp ../debug.keystore ./debug.keystore
 
-      - name: Build Debug APK from repository root
-        run: gradle :app:assembleDebug --stacktrace --no-daemon
+      - name: Build APK from original app project
+        run: gradle -p alasal-billing-v2-main :app:assembleDebug --stacktrace --no-daemon
 
       - name: Verify APK output
         shell: bash
         run: |
           set -e
-          APK="app/build/outputs/apk/debug/app-debug.apk"
+          APK="alasal-billing-v2-main/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           ls -lh "$APK"
           sha256sum "$APK"
           unzip -t "$APK" | tail -n 2
           test "$(stat -c%s "$APK")" -gt 1000000
 
-      - name: Upload APK built from current source
+      - name: Upload APK from original app project
         uses: actions/upload-artifact@v4
         with:
-          name: ElectricityBillingAp-debug-current-source
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: ElectricityBillingAp-debug-original-ui
+          path: alasal-billing-v2-main/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
