@@ -185,6 +185,7 @@ fun MeterReadingScreen(
                 }
             }
         }
+    }
 
     if (showUsers) {
         AlertDialog(
