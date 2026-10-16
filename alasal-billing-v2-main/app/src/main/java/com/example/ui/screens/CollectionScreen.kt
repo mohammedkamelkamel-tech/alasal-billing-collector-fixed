@@ -47,7 +47,7 @@ fun CollectionScreen(
 
     selectedSubscriber?.let { (subscriberId, subscriberName) ->
         val subscriberPayments = payments
-            .filter { it.userId == subscriberId || (it.userName.equals(subscriberName, ignoreCase = true) && subscriberName.isNotBlank()) }
+            .filter { it.userId == subscriberId || (subscriberId.isBlank() && it.userName.equals(subscriberName, ignoreCase = true) && subscriberName.isNotBlank()) }
             .sortedByDescending { it.paymentAt }
         AlertDialog(
             onDismissRequest = { selectedSubscriber = null },
