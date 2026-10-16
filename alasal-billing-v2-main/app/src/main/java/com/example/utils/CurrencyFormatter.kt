@@ -21,6 +21,22 @@ object CurrencyFormatter {
     /** 12345.0 -> "12,345 ريال يمني" */
     fun riyalFull(value: Double): String = "${amount(value)} ريال يمني"
 
+    fun format(value: Double, currencyCode: String): String {
+        val amountText = amount(value)
+        return when (currencyCode.uppercase(Locale.US)) {
+            "YER" -> amountText + " ر.ي"
+            "SAR" -> amountText + " ر.س"
+            "USD" -> amountText + " $"
+            else -> amountText + " " + currencyCode
+        }
+    }
+
+    /** Convert using units of target currency per one source-currency unit. */
+    fun convert(value: Double, rate: Double): Double {
+        require(rate > 0.0 && rate.isFinite()) { "Exchange rate must be a positive finite number" }
+        return value * rate
+    }
+
     /** 1200.0 -> "1,200" للقراءات والاستهلاك */
     fun kwh(value: Double): String = String.format(Locale.US, "%,.0f", value)
 }
