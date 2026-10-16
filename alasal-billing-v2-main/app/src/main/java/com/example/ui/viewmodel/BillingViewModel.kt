@@ -771,6 +771,7 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         phone: String,
         address: String,
         meterNumber: String,
+        meterSealNumber: String,
         unitPrice: Double
     ) {
         viewModelScope.launch {
@@ -786,6 +787,7 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
                 phone = phone,
                 address = address,
                 meterNumber = meterNumber,
+                meterSealNumber = meterSealNumber,
                 unitPrice = unitPrice.coerceAtLeast(0.0),
                 isActive = true
             )
