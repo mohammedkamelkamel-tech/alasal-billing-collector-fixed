@@ -62,15 +62,16 @@ jobs:
           keytool -list -v \
             -keystore "$GITHUB_WORKSPACE/debug.keystore" \
             -storepass android -alias androiddebugkey | grep -E 'SHA1:|SHA-1:'
+
       - name: Build Debug APK
-                run: gradle :app:assembleDebug --stacktrace --no-daemon
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
 
       - name: Verify APK
         shell: bash
         run: |
           set -e
           ls -lah app/build/outputs/apk/debug/
-          test -n "$(find alasal-billing-v2-main/app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          test -n "$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print -quit)"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
