@@ -3,17 +3,25 @@ package com.example.utils
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.graphics.Color
 import android.net.Uri
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
+import androidx.core.content.FileProvider
 import com.example.data.model.BillEntity
 import com.example.data.model.PaymentEntity
+import java.io.File
+import java.io.FileOutputStream
 import java.util.Locale
 
 /**
- * فتح محادثة WhatsApp الخاصة بالعميل مع الفاتورة/الإيصال مكتوباً مسبقاً.
- *
- * WhatsApp يتيح فتح المحادثة مع نص مُعبأ مسبقاً عبر wa.me، لكن الضغط على
- * إرسال يظل بيد المستخدم؛ لا يوجد في WhatsApp العادي API محلي يسمح للتطبيق
- * بإرسال الرسالة بصمت من دون تفاعل المستخدم.
+ * مشاركة الفواتير وإيصالات التحصيل مع WhatsApp.
+ * مشاركة الصورة تفتح شاشة اختيار المستلم في WhatsApp، ويؤكد المستخدم الإرسال بنفسه.
  */
 object WhatsAppHelper {
 
@@ -32,9 +40,7 @@ object WhatsAppHelper {
                 appendLine("سعر الكيلو: ${formatMoney(bill.unitPrice)} ريال")
             }
             appendLine("قيمة الاستهلاك: ${formatMoney(bill.subtotalAmount)} ريال")
-            if (bill.previousDebt != 0.0) {
-                appendLine("المتأخرات/الرصيد: ${formatMoney(bill.previousDebt)} ريال")
-            }
+            if (bill.previousDebt != 0.0) appendLine("المتأخرات/الرصيد: ${formatMoney(bill.previousDebt)} ريال")
             appendLine("الإجمالي المستحق: ${formatMoney(bill.totalAmount)} ريال")
             if (bill.paidAmount > 0.0) {
                 appendLine("المدفوع: ${formatMoney(bill.paidAmount)} ريال")
@@ -48,12 +54,7 @@ object WhatsAppHelper {
         return openWhatsApp(context, bill.userPhone, message)
     }
 
-    fun sendCollection(
-        context: Context,
-        bill: BillEntity,
-        amount: Double,
-        method: String
-    ): Boolean {
+    fun sendCollection(context: Context, bill: BillEntity, amount: Double, method: String): Boolean {
         val message = buildString {
             appendLine("🧾 إيصال تحصيل - محطة العسل")
             appendLine("━━━━━━━━━━━━━━")
@@ -61,14 +62,10 @@ object WhatsAppHelper {
             appendLine("الفاتورة: ${bill.invoiceNumber}")
             appendLine("تاريخ التحصيل: ${bill.paymentDate}")
             appendLine("المبلغ المحصل: ${formatMoney(amount)} ريال")
-            appendLine("طريقة الدفع: ${method}")
+            appendLine("طريقة الدفع: $method")
             appendLine("إجمالي الفاتورة: ${formatMoney(bill.totalAmount)} ريال")
             appendLine("المتبقي بعد التحصيل: ${formatMoney(bill.remainingAmount.coerceAtLeast(0.0))} ريال")
-            if (bill.remainingAmount <= 0.0) {
-                appendLine("الحالة: تم السداد بالكامل ✅")
-            } else {
-                appendLine("الحالة: دفعة جزئية")
-            }
+            appendLine(if (bill.remainingAmount <= 0.0) "الحالة: تم السداد بالكامل ✅" else "الحالة: دفعة جزئية")
             appendLine()
             appendLine("شكراً لتعاملكم معنا 🌷")
             appendLine("محطة العسل لخدمات الكهرباء والإنترنت")
@@ -76,12 +73,11 @@ object WhatsAppHelper {
         return openWhatsApp(context, bill.userPhone, message)
     }
 
-
-    /** مشاركة إيصال دفعة بعينها برقم مستقل، وليس رقم فاتورة الاستهلاك. */
+    /** يشارك صورة PNG لإيصال الدفعة المحددة، مع رقم إيصال مستقل عن رقم فاتورة الاستهلاك. */
     fun sendCollectionReceipt(context: Context, payment: PaymentEntity, phone: String): Boolean {
-        val message = buildString {
-            appendLine("🧾 إيصال تحصيل - محطة العسل")
-            appendLine("━━━━━━━━━━━━━━")
+        val receiptText = buildString {
+            appendLine("محطة العسل")
+            appendLine("إيصال تحصيل")
             appendLine("رقم الإيصال: ${payment.receiptNumber.takeIf { it > 0 } ?: "غير متوفر"}")
             appendLine("المشترك: ${payment.userName}")
             appendLine("فاتورة الاستهلاك: ${payment.invoiceNumber}")
@@ -91,10 +87,70 @@ object WhatsAppHelper {
             appendLine("المتبقي بعد الدفعة: ${formatMoney(payment.afterRemaining.coerceAtLeast(0.0))} ريال")
             appendLine("المحصل: ${payment.collectorName.ifBlank { "غير مسجل" }}")
             appendLine()
-            appendLine("شكراً لتعاملكم معنا 🌷")
-            appendLine("محطة العسل لخدمات الكهرباء والإنترنت")
+            appendLine("شكراً لتعاملكم معنا")
+            appendLine("خدمات الكهرباء والإنترنت")
         }
-        return openWhatsApp(context, phone, message)
+        return try {
+            val imageFile = createReceiptImage(context, receiptText)
+            val imageUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", imageFile)
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "image/png"
+                putExtra(Intent.EXTRA_STREAM, imageUri)
+                putExtra(Intent.EXTRA_TEXT, receiptText)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            val whatsappIntent = shareIntent.clone() as Intent
+            whatsappIntent.setPackage("com.whatsapp")
+            try {
+                context.startActivity(whatsappIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                true
+            } catch (_: ActivityNotFoundException) {
+                val businessIntent = shareIntent.clone() as Intent
+                businessIntent.setPackage("com.whatsapp.w4b")
+                try {
+                    context.startActivity(businessIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    true
+                } catch (_: Exception) {
+                    context.startActivity(Intent.createChooser(shareIntent, "إرسال إيصال التحصيل").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    true
+                }
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun createReceiptImage(context: Context, text: String): File {
+        val width = 900
+        val padding = 48
+        val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.BLACK
+            textSize = 36f
+            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+        }
+        val layout = StaticLayout.Builder.obtain(text, 0, text.length, textPaint, width - padding * 2)
+            .setAlignment(Layout.Alignment.ALIGN_OPPOSITE)
+            .setIncludePad(true)
+            .setLineSpacing(12f, 1.15f)
+            .build()
+        val height = (layout.height + padding * 2 + 40).coerceAtLeast(500)
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.WHITE)
+        val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(30, 110, 75)
+            style = Paint.Style.STROKE
+            strokeWidth = 8f
+        }
+        canvas.drawRoundRect(16f, 16f, width - 16f, height - 16f, 28f, 28f, borderPaint)
+        canvas.save()
+        canvas.translate(padding.toFloat(), padding.toFloat() + 12f)
+        layout.draw(canvas)
+        canvas.restore()
+        val file = File(context.cacheDir, "receipt-${System.currentTimeMillis()}.png")
+        FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        bitmap.recycle()
+        return file
     }
 
     fun openWhatsApp(context: Context, phone: String, message: String): Boolean {
@@ -105,7 +161,6 @@ object WhatsAppHelper {
             Uri.parse("https://wa.me/${normalized}?text=${encoded}")
         )
         val packages = listOf("com.whatsapp", "com.whatsapp.w4b")
-
         for (uri in intents) {
             for (pkg in packages) {
                 try {
@@ -116,9 +171,7 @@ object WhatsAppHelper {
                     context.startActivity(intent)
                     return true
                 } catch (_: ActivityNotFoundException) {
-                    // جرّب الرابط/الحزمة التالية.
                 } catch (_: Exception) {
-                    // لا نوقف حفظ الفاتورة بسبب مشكلة في فتح WhatsApp.
                 }
             }
         }
