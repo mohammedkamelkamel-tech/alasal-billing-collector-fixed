@@ -391,7 +391,7 @@ fun SettingsScreen(
             OutlinedTextField(
                 value = yerPerUsd,
                 onValueChange = { value ->
-                    if (value.isEmpty() || value.matches(Regex("^\\\\d*(\\\\.\\\\d*)?$"))) yerPerUsd = value
+                    if (value.isEmpty() || value.matches(Regex("^\\d*(\\.\\d*)?$"))) yerPerUsd = value
                 },
                 label = { Text("كم ريال يمني لكل دولار أمريكي؟") },
                 singleLine = true,
