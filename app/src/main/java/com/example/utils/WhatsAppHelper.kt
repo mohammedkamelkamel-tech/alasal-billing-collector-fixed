@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import com.example.data.model.BillEntity
+import com.example.data.model.PaymentEntity
 import java.util.Locale
 
 /**
@@ -73,6 +74,27 @@ object WhatsAppHelper {
             appendLine("محطة العسل لخدمات الكهرباء والإنترنت")
         }
         return openWhatsApp(context, bill.userPhone, message)
+    }
+
+
+    /** مشاركة إيصال دفعة بعينها برقم مستقل، وليس رقم فاتورة الاستهلاك. */
+    fun sendCollectionReceipt(context: Context, payment: PaymentEntity, phone: String): Boolean {
+        val message = buildString {
+            appendLine("🧾 إيصال تحصيل - محطة العسل")
+            appendLine("━━━━━━━━━━━━━━")
+            appendLine("رقم الإيصال: ${payment.receiptNumber.takeIf { it > 0 } ?: "غير متوفر"}")
+            appendLine("المشترك: ${payment.userName}")
+            appendLine("فاتورة الاستهلاك: ${payment.invoiceNumber}")
+            appendLine("تاريخ التحصيل: ${payment.paymentDate.ifBlank { "-" }}")
+            appendLine("المبلغ المحصل: ${formatMoney(payment.amount)} ريال")
+            appendLine("طريقة الدفع: ${payment.method}")
+            appendLine("المتبقي بعد الدفعة: ${formatMoney(payment.afterRemaining.coerceAtLeast(0.0))} ريال")
+            appendLine("المحصل: ${payment.collectorName.ifBlank { "غير مسجل" }}")
+            appendLine()
+            appendLine("شكراً لتعاملكم معنا 🌷")
+            appendLine("محطة العسل لخدمات الكهرباء والإنترنت")
+        }
+        return openWhatsApp(context, phone, message)
     }
 
     fun openWhatsApp(context: Context, phone: String, message: String): Boolean {

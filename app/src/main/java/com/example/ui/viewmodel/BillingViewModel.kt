@@ -815,7 +815,7 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         billId: String,
         amountPaid: Double,
         method: String = "نقدي",
-        onCompleted: (BillEntity, Double, String) -> Unit = { _, _, _ -> }
+        onCompleted: (BillEntity, Double, String, com.example.data.model.PaymentEntity) -> Unit = { _, _, _, _ -> }
     ) {
         viewModelScope.launch {
             if (amountPaid <= 0.0) return@launch
@@ -854,7 +854,7 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
                 // لكل دفعة رقم إيصال مستقل محلياً؛ الإدارة تعيد الرقم المعتمد عند المزامنة.
                 val synced = localNetworkSync.registerPayment(numberedPayment)
                 lastSyncError.value = if (synced) null else "تعذّرت مزامنة إيصال التحصيل مع الإدارة؛ سيبقى محفوظاً على الجهاز حتى تتوفر المزامنة"
-                onCompleted(updatedBill, amountPaid, method)
+                onCompleted(updatedBill, amountPaid, method, numberedPayment)
             }
         }
     }

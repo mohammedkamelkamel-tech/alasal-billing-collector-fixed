@@ -1,6 +1,9 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,9 +30,12 @@ fun CollectionScreen(
     payments: List<PaymentEntity>,
     canPerformAction: (String) -> Boolean,
     onPayClick: (BillEntity, Double, String) -> Unit,
-    onWhatsAppClick: (BillEntity) -> Unit
+    onWhatsAppClick: (BillEntity) -> Unit,
+    onReceiptClick: (PaymentEntity, String) -> Unit
 ) {
     var selectedBill by remember { mutableStateOf<BillEntity?>(null) }
+    var selectedSubscriberId by remember { mutableStateOf<String?>(null) }
+    var selectedSubscriberName by remember { mutableStateOf("") }
 
     selectedBill?.let { bill ->
         PaymentDialog(
@@ -39,6 +45,39 @@ fun CollectionScreen(
                 onPayClick(bill, amount, method)
                 selectedBill = null
             }
+        )
+    }
+
+
+    if (selectedSubscriberId != null) {
+        val subscriberPayments = payments.filter { payment ->
+            if (!selectedSubscriberId.isNullOrBlank()) payment.userId == selectedSubscriberId
+            else payment.userName.equals(selectedSubscriberName, ignoreCase = true)
+        }.sortedByDescending { it.paymentAt }
+        AlertDialog(
+            onDismissRequest = { selectedSubscriberId = null; selectedSubscriberName = "" },
+            title = { Text("تحصيلات $selectedSubscriberName") },
+            text = {
+                if (subscriberPayments.isEmpty()) Text("لا توجد تحصيلات مسجلة لهذا المشترك.")
+                else Column(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text("عدد الدفعات: ${subscriberPayments.size}", fontWeight = FontWeight.Bold)
+                    Text("إجمالي التحصيل: ${CurrencyFormatter.riyal(subscriberPayments.sumOf { it.amount })}", color = MaterialTheme.colorScheme.primary)
+                    subscriberPayments.forEach { payment ->
+                        HorizontalDivider()
+                        Text("المبلغ: ${CurrencyFormatter.riyal(payment.amount)}", fontWeight = FontWeight.Bold)
+                        Text("إيصال #${payment.receiptNumber.takeIf { it > 0 } ?: "-"}")
+                        Text("فاتورة الاستهلاك: ${payment.invoiceNumber}")
+                        Text("التاريخ: ${payment.paymentDate.ifBlank { "-" }}")
+                        Text("المحصل: ${payment.collectorName.ifBlank { "غير مسجل" }}")
+                        val phone = bills.firstOrNull { it.userId == payment.userId }?.userPhone.orEmpty()
+                        TextButton(onClick = { onReceiptClick(payment, phone) }, enabled = phone.isNotBlank() && payment.receiptNumber > 0) { Text("إرسال الإيصال") }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { selectedSubscriberId = null; selectedSubscriberName = "" }) { Text("إغلاق") } }
         )
     }
 
@@ -86,7 +125,15 @@ fun CollectionScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(bill.userName.ifBlank { "مشترك" }, fontWeight = FontWeight.Bold)
+                            Text(
+                                bill.userName.ifBlank { "مشترك" },
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.clickable {
+                                    selectedSubscriberId = bill.userId
+                                    selectedSubscriberName = bill.userName.ifBlank { "مشترك" }
+                                }
+                            )
                             Text("فاتورة ${bill.invoiceNumber}", style = MaterialTheme.typography.labelSmall)
                             Text("المطلوب: ${CurrencyFormatter.riyal(bill.remainingAmount.takeIf { it > 0 } ?: bill.totalAmount)}", color = MaterialTheme.colorScheme.error)
                             if (bill.paidAmount > 0) {
@@ -124,7 +171,15 @@ fun CollectionScreen(
                 Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(payment.userName.ifBlank { "مشترك" }, fontWeight = FontWeight.Bold)
+                            Text(
+                                payment.userName.ifBlank { "مشترك" },
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.clickable {
+                                    selectedSubscriberId = payment.userId
+                                    selectedSubscriberName = payment.userName.ifBlank { "مشترك" }
+                                }
+                            )
                             Text(CurrencyFormatter.riyal(payment.amount), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                         }
                         Text(
@@ -133,6 +188,8 @@ fun CollectionScreen(
                         )
                         Text("المحصل: ${payment.collectorName.ifBlank { "غير مسجل" }} • الطريقة: ${payment.method}", style = MaterialTheme.typography.bodySmall)
                         Text("المتبقي بعد الإيصال: ${CurrencyFormatter.riyal(payment.afterRemaining.coerceAtLeast(0.0))}", style = MaterialTheme.typography.labelSmall)
+                        val phone = bills.firstOrNull { it.userId == payment.userId }?.userPhone.orEmpty()
+                        TextButton(onClick = { onReceiptClick(payment, phone) }, enabled = phone.isNotBlank() && payment.receiptNumber > 0) { Text("فتح / إرسال الإيصال عبر واتساب") }
                     }
                 }
             }

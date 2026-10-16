@@ -225,8 +225,8 @@ class MainActivity : ComponentActivity() {
                                     // الدفع الجزئي: يُمرَّر المبلغ المدفوع فعلياً من نافذة الدفع
                                     onPayClick = { bill, amount, method ->
                                         viewModel.payBill(bill.id, amount, method,
-                                            onCompleted = { updatedBill, paidAmount, paidMethod ->
-                                                if (!WhatsAppHelper.sendCollection(this@MainActivity, updatedBill, paidAmount, paidMethod)) {
+                                            onCompleted = { updatedBill, paidAmount, paidMethod, payment ->
+                                                if (!WhatsAppHelper.sendCollectionReceipt(this@MainActivity, payment, updatedBill.userPhone)) {
                                                     Toast.makeText(this@MainActivity, "تم التحصيل، لكن تعذّر فتح WhatsApp للعميل", Toast.LENGTH_SHORT).show()
                                                 }
                                             }
@@ -252,10 +252,17 @@ class MainActivity : ComponentActivity() {
                                             Toast.makeText(this@MainActivity, "تعذّر فتح WhatsApp للعميل", Toast.LENGTH_SHORT).show()
                                         }
                                     },
+                                    onReceiptClick = { payment, phone ->
+                                        if (payment.receiptNumber <= 0L) {
+                                            Toast.makeText(this@MainActivity, "رقم الإيصال غير متوفر لهذه الدفعة القديمة", Toast.LENGTH_LONG).show()
+                                        } else if (!WhatsAppHelper.sendCollectionReceipt(this@MainActivity, payment, phone)) {
+                                            Toast.makeText(this@MainActivity, "تعذّر فتح WhatsApp أو رقم هاتف المشترك غير متوفر", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
                                     onPayClick = { bill, amount, method ->
                                         viewModel.payBill(bill.id, amount, method,
-                                            onCompleted = { updatedBill, paidAmount, paidMethod ->
-                                                if (!WhatsAppHelper.sendCollection(this@MainActivity, updatedBill, paidAmount, paidMethod)) {
+                                            onCompleted = { updatedBill, paidAmount, paidMethod, payment ->
+                                                if (!WhatsAppHelper.sendCollectionReceipt(this@MainActivity, payment, updatedBill.userPhone)) {
                                                     Toast.makeText(this@MainActivity, "تم التحصيل، لكن تعذّر فتح WhatsApp للعميل", Toast.LENGTH_SHORT).show()
                                                 }
                                             }
@@ -360,8 +367,8 @@ class MainActivity : ComponentActivity() {
                                         onBackClick = { navController.popBackStack() },
                                         onPayClick = { b, amount, method ->
                                             viewModel.payBill(b.id, amount, method,
-                                                onCompleted = { updatedBill, paidAmount, paidMethod ->
-                                                    if (!WhatsAppHelper.sendCollection(this@MainActivity, updatedBill, paidAmount, paidMethod)) {
+                                                onCompleted = { updatedBill, paidAmount, paidMethod, payment ->
+                                                    if (!WhatsAppHelper.sendCollectionReceipt(this@MainActivity, payment, updatedBill.userPhone)) {
                                                         Toast.makeText(this@MainActivity, "تم التحصيل، لكن تعذّر فتح WhatsApp للعميل", Toast.LENGTH_SHORT).show()
                                                     }
                                                 }
