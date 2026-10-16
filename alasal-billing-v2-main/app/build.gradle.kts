@@ -85,6 +85,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.biometric:biometric:1.1.0")
     // ---------- Jetpack Compose (واجهات المستخدم) ----------
     implementation(platform("androidx.compose:compose-bom:2025.02.00"))
     implementation("androidx.activity:activity-compose:1.10.1")
