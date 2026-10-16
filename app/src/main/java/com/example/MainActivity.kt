@@ -75,7 +75,7 @@ class MainActivity : ComponentActivity() {
             ElectricityBillingTheme(darkTheme = darkTheme) {
                 val showTopBar = currentAccessKey != null && currentRoute != "login"
                 val showBottomNav = currentAccessKey != null && currentRoute in listOf("home", "bills", "collection", "users", "reports")
-                val showBackButton = currentRoute in listOf("bill_details", "add_edit_bill", "meter_reading", "reading_reminders", "profile", "settings", "account_statement")
+                val showBackButton = (currentRoute in listOf("bill_details", "add_edit_bill", "meter_reading", "reading_reminders", "profile", "settings") || currentRoute.startsWith("account_statement/"))
 
                 val screenTitle = when (currentRoute) {
                     "home" -> "الرئيسية"
@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
                     "reports" -> "التقارير والإحصائيات"
                     "settings" -> "إعدادات الصلاحيات"
                     "bill_details" -> "تفاصيل الفاتورة"
-                    "account_statement" -> "كشف حساب المشترك"
+                    "account_statement/{userId}" -> "كشف حساب المشترك"
                     "add_edit_bill" -> "إضافة / تعديل فاتورة"
                     "meter_reading" -> "قراءة العداد"
                     "reading_reminders" -> "تذكير قراءة العدادات"
