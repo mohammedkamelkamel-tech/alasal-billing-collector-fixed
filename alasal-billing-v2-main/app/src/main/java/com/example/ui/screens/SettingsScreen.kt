@@ -424,6 +424,63 @@ fun SettingsScreen(
             )
         }
 
+
+        SettingsGroupCard(title = "كلمة المرور والبصمة") {
+            Text("يمكنك تغيير كلمة المرور وتفعيل بصمة الهاتف لتسجيل الدخول.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(onClick = {
+                showPasswordDialog = true
+                passwordDialogError = ""
+                oldPassword = ""
+                newPassword = ""
+                confirmNewPassword = ""
+            }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.Lock, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("تغيير كلمة المرور")
+            }
+            SettingsToggleRow(
+                title = "تسجيل الدخول بالبصمة",
+                subtitle = "يتطلب بصمة مسجلة في إعدادات الهاتف",
+                checked = biometricEnabled,
+                onCheckedChange = {
+                    biometricEnabled = it
+                    viewModel.setBiometricLoginEnabled(it)
+                }
+            )
+        }
+
+        if (showPasswordDialog) {
+            AlertDialog(
+                onDismissRequest = { showPasswordDialog = false },
+                title = { Text("تغيير كلمة المرور") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(value = oldPassword, onValueChange = { oldPassword = it }, label = { Text("كلمة المرور الحالية") }, singleLine = true, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
+                        OutlinedTextField(value = newPassword, onValueChange = { newPassword = it }, label = { Text("كلمة المرور الجديدة") }, singleLine = true, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
+                        OutlinedTextField(value = confirmNewPassword, onValueChange = { confirmNewPassword = it }, label = { Text("تأكيد كلمة المرور الجديدة") }, singleLine = true, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
+                        if (passwordDialogError.isNotBlank()) Text(passwordDialogError, color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        passwordDialogError = when {
+                            !viewModel.verifyLocalPassword(oldPassword) -> "كلمة المرور الحالية غير صحيحة"
+                            newPassword.length < 6 -> "كلمة المرور الجديدة قصيرة جداً"
+                            newPassword != confirmNewPassword -> "كلمتا المرور غير متطابقتين"
+                            !viewModel.saveLocalPassword(newPassword) -> "تعذر حفظ كلمة المرور"
+                            else -> ""
+                        }
+                        if (passwordDialogError.isBlank()) {
+                            showPasswordDialog = false
+                            Toast.makeText(context, "تم تغيير كلمة المرور", Toast.LENGTH_SHORT).show()
+                        }
+                    }) { Text("حفظ") }
+                },
+                dismissButton = { TextButton(onClick = { showPasswordDialog = false }) { Text("إلغاء") } }
+            )
+        }
+
         // Section 4: Security and Backup
         if (isAdmin) {
             SettingsGroupCard(title = "الأمان والنسخ الاحتياطي") {
