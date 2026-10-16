@@ -43,7 +43,7 @@ fun UserManagementScreen(
     onSearchQueryChange: (String) -> Unit,
     roleFilter: String,
     onRoleFilterChange: (String) -> Unit,
-    onAddUser: (String, String, String, String, String, String, Double) -> Unit,
+    onAddUser: (String, String, String, String, String, String, String, Double) -> Unit,
     onToggleUserStatus: (String, Boolean) -> Unit,
     onDeleteUser: (UserEntity) -> Unit,
     onUpdateUser: (UserEntity) -> Unit = {},
@@ -104,7 +104,7 @@ fun UserManagementScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = onSearchQueryChange,
-                placeholder = { Text("بحث بالاسم أو البريد الإلكتروني...") },
+                placeholder = { Text("بحث بالاسم أو رقم المشترك...") },
                 leadingIcon = { Icon(imageVector = Icons.Filled.Search, contentDescription = "بحث") },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
@@ -207,8 +207,8 @@ fun UserManagementScreen(
         if (showAddUserDialog) {
             AddUserDialog(
                 onDismiss = { showAddUserDialog = false },
-                onConfirm = { name, email, role, phone, address, meterNumber, unitPrice ->
-                    onAddUser(name, email, role, phone, address, meterNumber, unitPrice)
+                onConfirm = { name, subscriberNumber, role, phone, address, meterNumber, meterSealNumber, unitPrice ->
+                    onAddUser(name, subscriberNumber, role, phone, address, meterNumber, meterSealNumber, unitPrice)
                     showAddUserDialog = false
                     Toast.makeText(context, "تمت إضافة المشترك بنجاح", Toast.LENGTH_SHORT).show()
                 }
@@ -385,13 +385,14 @@ fun UserCard(
 @Composable
 fun AddUserDialog(
     onDismiss: () -> Unit,
-    onConfirm: (name: String, email: String, role: String, phone: String, address: String, meterNumber: String, unitPrice: Double) -> Unit
+    onConfirm: (name: String, subscriberNumber: String, role: String, phone: String, address: String, meterNumber: String, meterSealNumber: String, unitPrice: Double) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
     var meterNumber by remember { mutableStateOf("") }
+    var meterSealNumber by remember { mutableStateOf("") }
     var unitPrice by remember { mutableStateOf("170") }
     var selectedRole by remember { mutableStateOf(UserRole.SUB_ACCOUNT) }
 
@@ -410,7 +411,7 @@ fun AddUserDialog(
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("البريد الإلكتروني") },
+                    label = { Text("رقم المشترك") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -436,6 +437,20 @@ fun AddUserDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
+                    value = meterSealNumber,
+                    onValueChange = { meterSealNumber = it },
+                    label = { Text("رقم ختم العداد") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = meterSealNumber,
+                    onValueChange = { meterSealNumber = it },
+                    label = { Text("رقم ختم العداد") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
                     value = unitPrice,
                     onValueChange = { unitPrice = it.filter { c -> c.isDigit() || c == '.' } },
                     label = { Text("سعر الكيلوواط للمشترك") },
@@ -455,9 +470,17 @@ fun AddUserDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (name.isNotBlank() && email.isNotBlank()) {
-                        onConfirm(name, email, selectedRole.name, phone, address, meterNumber, unitPrice.toDoubleOrNull() ?: 170.0)
-                    }
+                    val missing = mutableListOf<String>()
+                    if (name.isBlank()) missing += "الاسم الكامل"
+                    if (email.isBlank()) missing += "رقم المشترك"
+                    if (phone.isBlank()) missing += "رقم الهاتف"
+                    if (address.isBlank()) missing += "العنوان / الفرع"
+                    if (meterNumber.isBlank()) missing += "رقم العداد"
+                    if (meterSealNumber.isBlank()) missing += "رقم ختم العداد"
+                    val price = unitPrice.toDoubleOrNull()
+                    if (price == null || price <= 0.0) missing += "سعر الكيلوواط"
+                    if (missing.isEmpty()) onConfirm(name.trim(), email.trim(), selectedRole.name, phone.trim(), address.trim(), meterNumber.trim(), meterSealNumber.trim(), price!!)
+                    else Toast.makeText(context, "يرجى استكمال/تصحيح: " + missing.joinToString("، "), Toast.LENGTH_LONG).show()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = VibrantGreen)
             ) {
@@ -483,6 +506,7 @@ fun EditUserDialog(
     var phone by remember { mutableStateOf(user.phone) }
     var address by remember { mutableStateOf(user.address) }
     var meterNumber by remember { mutableStateOf(user.meterNumber) }
+    var meterSealNumber by remember { mutableStateOf(user.meterSealNumber) }
     var unitPrice by remember { mutableStateOf(user.unitPrice.toString().removeSuffix(".0")) }
 
     AlertDialog(
@@ -538,16 +562,19 @@ fun EditUserDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (name.isNotBlank() && email.isNotBlank()) {
-                        val updated = user.copy(
-                            name = name,
-                            email = email,
-                            phone = phone,
-                            address = address,
-                            meterNumber = meterNumber,
-                            unitPrice = unitPrice.toDoubleOrNull()?.coerceAtLeast(0.0) ?: user.unitPrice
-                        )
-                        onConfirm(updated)
+                    val missing = mutableListOf<String>()
+                    if (name.isBlank()) missing += "الاسم الكامل"
+                    if (email.isBlank()) missing += "رقم المشترك"
+                    if (phone.isBlank()) missing += "رقم الهاتف"
+                    if (address.isBlank()) missing += "العنوان / الفرع"
+                    if (meterNumber.isBlank()) missing += "رقم العداد"
+                    if (meterSealNumber.isBlank()) missing += "رقم ختم العداد"
+                    val price = unitPrice.toDoubleOrNull()
+                    if (price == null || price <= 0.0) missing += "سعر الكيلوواط"
+                    if (missing.isNotEmpty()) {
+                        Toast.makeText(context, "يرجى استكمال/تصحيح: " + missing.joinToString("، "), Toast.LENGTH_LONG).show()
+                    } else {
+                        onConfirm(user.copy(name=name.trim(), email=email.trim(), phone=phone.trim(), address=address.trim(), meterNumber=meterNumber.trim(), meterSealNumber=meterSealNumber.trim(), unitPrice=price!!))
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = VibrantGreen)
@@ -602,6 +629,8 @@ fun SubscriberDetailsDialog(
                 SubscriberStatRow("رقم الهاتف", user.phone.ifBlank { "-" })
                 SubscriberStatRow("العنوان", user.address.ifBlank { "-" })
                 SubscriberStatRow("رقم العداد", user.meterNumber.ifBlank { "-" })
+                SubscriberStatRow("رقم ختم العداد", user.meterSealNumber.ifBlank { "-" })
+                SubscriberStatRow("رقم المشترك", user.email.ifBlank { "-" })
                 HorizontalDivider()
                 SubscriberStatRow("إجمالي المستحقات", CurrencyFormatter.riyal(stats.totalDue))
                 SubscriberStatRow("عدد الفواتير", "${stats.billsCount} فاتورة")
