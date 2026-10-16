@@ -7,17 +7,56 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
+import android.util.Base64
+import java.security.SecureRandom
+import javax.crypto.SecretKeyFactory
+import javax.crypto.spec.PBEKeySpec
 
 /**
  * تخزين مفاتيح الدخول محلياً. لا يعتمد على الإنترنت أو خدمة سحابية.
  */
 class LocalAccessKeyRepository(context: Context) {
     private val prefs = context.getSharedPreferences("local_access_keys", Context.MODE_PRIVATE)
+    private val securityPrefs = context.getSharedPreferences("local_app_security", Context.MODE_PRIVATE)
     private val state = MutableStateFlow(load())
 
     init {
         if (!prefs.contains("keys_json")) saveAll(state.value)
     }
+
+
+    fun isPasswordSet(): Boolean = !securityPrefs.getString("password_hash", null).isNullOrBlank()
+
+    fun setLocalPassword(password: String): Boolean {
+        if (password.length < 6) return false
+        return try {
+            val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
+            val spec = PBEKeySpec(password.toCharArray(), salt, 120000, 256)
+            val hash = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded
+            spec.clearPassword()
+            securityPrefs.edit()
+                .putString("password_salt", Base64.encodeToString(salt, Base64.NO_WRAP))
+                .putString("password_hash", Base64.encodeToString(hash, Base64.NO_WRAP))
+                .apply()
+            true
+        } catch (_: Exception) { false }
+    }
+
+    fun verifyLocalPassword(password: String): Boolean {
+        val saltText = securityPrefs.getString("password_salt", null) ?: return false
+        val expectedText = securityPrefs.getString("password_hash", null) ?: return false
+        return try {
+            val salt = Base64.decode(saltText, Base64.NO_WRAP)
+            val expected = Base64.decode(expectedText, Base64.NO_WRAP)
+            val spec = PBEKeySpec(password.toCharArray(), salt, 120000, 256)
+            val actual = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded
+            spec.clearPassword()
+            java.security.MessageDigest.isEqual(expected, actual)
+        } catch (_: Exception) { false }
+    }
+
+    fun isBiometricEnabled(): Boolean = securityPrefs.getBoolean("biometric_enabled", false)
+    fun setBiometricEnabled(enabled: Boolean) { securityPrefs.edit().putBoolean("biometric_enabled", enabled).apply() }
 
     private fun defaults(): List<AccessKey> = listOf(
         // مفتاح الإدارة فقط يكون مضمّناً افتراضياً.
