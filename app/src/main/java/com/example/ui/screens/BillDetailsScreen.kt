@@ -370,7 +370,7 @@ fun BillDetailsScreen(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Icon(imageVector = Icons.Filled.WhatsApp, contentDescription = "إرسال واتساب")
+                        Icon(imageVector = Icons.Filled.Send, contentDescription = "إرسال واتساب")
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("واتساب", maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                     }
