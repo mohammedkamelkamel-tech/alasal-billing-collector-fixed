@@ -428,7 +428,7 @@ class LocalNetworkSync(
                 .fromJson(remote.optJSONArray("payments")?.toString() ?: "[]")
                 .orEmpty()
                 .mapTo(hashSetOf()) { it.id }
-            val pending = db.paymentDao().getAll().first().filter { it.receiptNumber == 0L && it.id !in remoteIds }
+            val pending = db.paymentDao().getAll().first().filter { it.id !in remoteIds }
             if (pending.isNotEmpty()) {
                 pending.forEach { payment ->
                     if (!registerPayment(payment)) return@forEach
@@ -515,7 +515,10 @@ class LocalNetworkSync(
         }
 
         // سجل الإيصالات append-only: لا نحذف إيصالات محلية معلقة.
-        payments.forEach { remote -> db.paymentDao().insert(remote) }
+        payments.forEach { remote ->
+            val existing = db.paymentDao().getById(remote.id)
+            if (existing == null) db.paymentDao().insert(remote) else db.paymentDao().update(remote)
+        }
 
         // لا نحذف مفاتيح محلية تلقائياً؛ قد يكون هناك مفتاح جديد أُنشئ محلياً
         // أثناء انقطاع الشبكة وسيتم إرساله للإدارة.
