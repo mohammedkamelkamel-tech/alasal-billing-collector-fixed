@@ -62,6 +62,16 @@ fun SettingsScreen(
     var confirmNewPassword by remember { mutableStateOf("") }
     var passwordDialogError by remember { mutableStateOf("") }
     var biometricEnabled by remember { mutableStateOf(viewModel.isBiometricLoginEnabled()) }
+    var yerPerUsd by remember { mutableStateOf(viewModel.getPreferenceString("exchange_yer_per_usd", "250")) }
+    var yerPerSar by remember { mutableStateOf(viewModel.getPreferenceString("exchange_yer_per_sar", "66")) }
+    var smsEnabled by remember { mutableStateOf(viewModel.getPreferenceBoolean("sim_sms_enabled", false)) }
+    val smsPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        smsEnabled = granted
+        viewModel.updatePreferenceBoolean("sim_sms_enabled", granted)
+        Toast.makeText(context, if (granted) "تم السماح بإرسال الرسائل عبر الشريحة" else "لم يتم منح إذن الرسائل", Toast.LENGTH_SHORT).show()
+    }
 
     val driveAuthorizationLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
@@ -372,6 +382,65 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
+
+        SettingsGroupCard(title = "العملات وأسعار الصرف") {
+            Text("العملة الافتراضية للفواتير الجديدة", style = MaterialTheme.typography.titleSmall)
+            Text("الأسعار التالية يدوية؛ حدّثها يومياً من سعر الصرف المعتمد لديك.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = yerPerUsd,
+                onValueChange = { value ->
+                    if (value.isEmpty() || value.matches(Regex("^\\\\d*(\\\\.\\\\d*)?$"))) yerPerUsd = value
+                },
+                label = { Text("كم ريال يمني لكل دولار أمريكي؟") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = yerPerSar,
+                onValueChange = { value ->
+                    if (value.isEmpty() || value.matches(Regex("^\\\\d*(\\\\.\\\\d*)?$"))) yerPerSar = value
+                },
+                label = { Text("كم ريال يمني لكل ريال سعودي؟") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Button(onClick = {
+                val usd = yerPerUsd.toDoubleOrNull()
+                val sar = yerPerSar.toDoubleOrNull()
+                if (usd == null || sar == null || usd <= 0.0 || sar <= 0.0) {
+                    Toast.makeText(context, "أدخل أسعار صرف صحيحة أكبر من صفر", Toast.LENGTH_LONG).show()
+                } else {
+                    viewModel.updatePreferenceString("exchange_yer_per_usd", usd.toString())
+                    viewModel.updatePreferenceString("exchange_yer_per_sar", sar.toString())
+                    viewModel.updatePreferenceString("exchange_rates_updated_at", System.currentTimeMillis().toString())
+                    Toast.makeText(context, "تم حفظ أسعار الصرف", Toast.LENGTH_SHORT).show()
+                }
+            }, modifier = Modifier.fillMaxWidth()) { Text("حفظ أسعار الصرف") }
+            Text(
+                "آخر تحديث: " + viewModel.getPreferenceString("exchange_rates_updated_at", "لم يتم الحفظ").let { value ->
+                    value.toLongOrNull()?.let { java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(it)) } ?: value
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.Gray
+            )
+        }
+
+        SettingsGroupCard(title = "الرسائل النصية عبر شريحة الهاتف") {
+            Text("يتطلب هذا الخيار إذن SMS وقد تفرض شركة الاتصالات رسوماً. الإرسال التلقائي يحتاج ربطه بحدث إصدار الفاتورة.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            SettingsToggleRow(
+                title = "السماح بإرسال SMS عبر SIM",
+                subtitle = "يُطلب إذن النظام عند التفعيل",
+                checked = smsEnabled,
+                onCheckedChange = { enabled ->
+                    if (enabled) smsPermissionLauncher.launch(android.Manifest.permission.SEND_SMS)
+                    else {
+                        smsEnabled = false
+                        viewModel.updatePreferenceBoolean("sim_sms_enabled", false)
+                    }
+                }
+            )
         }
 
         SettingsGroupCard(title = "إعدادات عرض الفاتورة") {
