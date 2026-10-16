@@ -146,48 +146,45 @@ fun MeterReadingScreen(
         }
 
         item {
-            // سجل القراءات المحفوظة مع إمكانية تصحيح القراءة الخاطئة.
-    if (readings.isNotEmpty()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text("سجل القراءات", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-            readings.sortedByDescending { it.createdAt }.take(20).forEach { reading ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(reading.userName, fontWeight = FontWeight.Bold)
-                            Text("السابقة: " + reading.previousReading.toInt() + "  ←  الحالية: " + reading.currentReading.toInt())
-                            Text("التاريخ: " + reading.readingDate, style = MaterialTheme.typography.labelSmall)
-                        }
-                        OutlinedButton(
-                            onClick = {
-                                editingReadingId = reading.id
-                                selectedUser = users.firstOrNull { it.id == reading.userId } ?: selectedUser
-                                readingText = reading.currentReading.toString()
-                                dateText = reading.readingDate
-                                notes = reading.notes
-                                imageUri = reading.imageUri?.let { Uri.parse(it) }
-                                showUsers = false
-                            },
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Icon(Icons.Filled.Edit, contentDescription = "تعديل القراءة", modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(5.dp))
-                            Text("تعديل القراءة")
+            if (readings.isNotEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("سجل القراءات", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                    readings.sortedByDescending { it.createdAt }.take(20).forEach { reading ->
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(reading.userName, fontWeight = FontWeight.Bold)
+                                    Text("السابقة: ${reading.previousReading.toInt()}  ←  الحالية: ${reading.currentReading.toInt()}")
+                                    Text("التاريخ: ${reading.readingDate}", style = MaterialTheme.typography.labelSmall)
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        editingReadingId = reading.id
+                                        selectedUser = users.firstOrNull { it.id == reading.userId } ?: selectedUser
+                                        readingText = reading.currentReading.toString()
+                                        dateText = reading.readingDate
+                                        notes = reading.notes
+                                        imageUri = reading.imageUri?.let { Uri.parse(it) }
+                                        showUsers = false
+                                    },
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.Filled.Edit, contentDescription = "تعديل القراءة", modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(5.dp))
+                                    Text("تعديل القراءة")
+                                }
+                            }
                         }
                     }
                 }
             }
         }
-        }
-    }
 
     if (showUsers) {
         AlertDialog(
