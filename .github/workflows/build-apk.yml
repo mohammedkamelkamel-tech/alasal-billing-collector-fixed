@@ -50,7 +50,7 @@ jobs:
             -keystore "$GITHUB_WORKSPACE/debug.keystore" \
             -storepass android -alias androiddebugkey | grep -E 'SHA1:|SHA-1:'
       - name: Build Debug APK
-                run: gradle :app:assembleDebug --stacktrace --no-daemon
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
