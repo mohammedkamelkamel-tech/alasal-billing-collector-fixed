@@ -28,7 +28,7 @@ jobs:
         id: keystore-cache
         uses: actions/cache@v4
         with:
-          path: alasal-billing-v2-main/debug.keystore
+          path: debug.keystore
           key: alasal-android-oauth-debug-keystore-v1
 
       - name: Generate debug keystore if missing
@@ -37,7 +37,7 @@ jobs:
         run: |
           set -e
           keytool -genkeypair -v \
-            -keystore "$GITHUB_WORKSPACE/alasal-billing-v2-main/debug.keystore" \
+            -keystore "$GITHUB_WORKSPACE/debug.keystore" \
             -storepass android -keypass android \
             -alias androiddebugkey \
             -keyalg RSA -keysize 2048 -validity 10000 \
@@ -47,16 +47,15 @@ jobs:
         shell: bash
         run: |
           keytool -list -v \
-            -keystore "$GITHUB_WORKSPACE/alasal-billing-v2-main/debug.keystore" \
+            -keystore "$GITHUB_WORKSPACE/debug.keystore" \
             -storepass android -alias androiddebugkey | grep -E 'SHA1:|SHA-1:'
       - name: Build Debug APK
-        working-directory: alasal-billing-v2-main
-        run: gradle :app:assembleDebug --stacktrace --no-daemon
+                run: gradle :app:assembleDebug --stacktrace --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: alasal-billing-debug-apk
-          path: alasal-billing-v2-main/app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
