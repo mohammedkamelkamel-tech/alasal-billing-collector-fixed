@@ -75,7 +75,7 @@ class MainActivity : ComponentActivity() {
             ElectricityBillingTheme(darkTheme = darkTheme) {
                 val showTopBar = currentAccessKey != null && currentRoute != "login"
                 val showBottomNav = currentAccessKey != null && currentRoute in listOf("home", "bills", "collection", "users", "reports")
-                val showBackButton = currentRoute in listOf("bill_details", "add_edit_bill", "meter_reading", "reading_reminders", "profile", "settings")
+                val showBackButton = currentRoute in listOf("bill_details", "add_edit_bill", "meter_reading", "reading_reminders", "profile", "settings", "account_statement")
 
                 val screenTitle = when (currentRoute) {
                     "home" -> "الرئيسية"
@@ -86,6 +86,7 @@ class MainActivity : ComponentActivity() {
                     "reports" -> "التقارير والإحصائيات"
                     "settings" -> "إعدادات الصلاحيات"
                     "bill_details" -> "تفاصيل الفاتورة"
+                    "account_statement" -> "كشف حساب المشترك"
                     "add_edit_bill" -> "إضافة / تعديل فاتورة"
                     "meter_reading" -> "قراءة العداد"
                     "reading_reminders" -> "تذكير قراءة العدادات"
@@ -318,12 +319,32 @@ class MainActivity : ComponentActivity() {
                                         viewModel.updateUser(updatedUser)
                                     },
                                     bills = bills,
+                                    onAccountStatement = { user -> navController.navigate("account_statement/${user.id}") },
                                     onUpdateUnitPriceForEveryone = { newPrice ->
                                         viewModel.updateUnitPriceForEveryone(newPrice) { count ->
                                             Toast.makeText(this@MainActivity, "تم تحديث سعر الكيلو إلى $newPrice ريال وإعادة حساب $count فاتورة", Toast.LENGTH_LONG).show()
                                         }
                                     }
                                 )
+                            }
+
+                            composable("account_statement/{userId}") { entry ->
+                                val statementUserId = entry.arguments?.getString("userId").orEmpty()
+                                val statementUser = users.firstOrNull { it.id == statementUserId }
+                                if (statementUser != null) {
+                                    SubscriberAccountStatementScreen(
+                                        user = statementUser,
+                                        bills = bills.filter { it.userId == statementUser.id },
+                                        payments = payments.filter { it.userId == statementUser.id || (it.userId.isBlank() && it.userName.equals(statementUser.name, ignoreCase = true)) },
+                                        onShare = { statementText ->
+                                            if (!WhatsAppHelper.openWhatsApp(this@MainActivity, statementUser.phone, statementText)) {
+                                                Toast.makeText(this@MainActivity, "تعذّر فتح WhatsApp أو رقم هاتف المشترك غير متوفر", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    )
+                                } else {
+                                    androidx.compose.material3.Text("تعذّر العثور على بيانات المشترك")
+                                }
                             }
 
                             composable("reports") {
