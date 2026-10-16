@@ -11,6 +11,7 @@ import com.example.data.model.RolePermissionEntity
 import com.example.data.model.PaymentEntity
 import com.example.data.model.UserEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
