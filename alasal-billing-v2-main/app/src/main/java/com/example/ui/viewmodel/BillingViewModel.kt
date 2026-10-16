@@ -643,7 +643,15 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
             val netTotal = subtotal + arrears - availableCredit
             val total = netTotal.coerceAtLeast(0.0)
             val carriedCredit = (-netTotal).coerceAtLeast(0.0)
-            val invNum = "#${(12346..99999).random()}"
+            // رقم تسلسلي محفوظ دائماً، ويُقارن بأعلى رقم موجود لتفادي التكرار بعد حذف فاتورة.
+            val highestStoredInvoice = repository.allBills.first()
+                .mapNotNull { it.invoiceNumber.removePrefix("#").toLongOrNull() }
+                .maxOrNull() ?: 0L
+            val nextInvoiceNumber = maxOf(prefs.getLong("last_invoice_number", 0L), highestStoredInvoice) + 1L
+            check(prefs.edit().putLong("last_invoice_number", nextInvoiceNumber).commit()) {
+                "تعذر حفظ رقم الفاتورة التسلسلي"
+            }
+            val invNum = "#$nextInvoiceNumber"
 
             val issueDate = readingDate.ifBlank { todayFormatted() }
             val dueDate = dueDateFrom(issueDate)
@@ -766,7 +774,16 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
                     paymentAt = System.currentTimeMillis(),
                     beforeRemaining = beforeBill.remainingAmount.takeIf { it > 0 } ?: beforeBill.totalAmount,
                     afterRemaining = updatedBill.remainingAmount,
-                    receiptNumber = 0L
+                    // رقم إيصال مستقل ومتسلسل، لا يعاد استخدامه حتى بعد حذف التحصيلات.
+                    receiptNumber = run {
+                        val highestStoredReceipt = repository.allPayments.first()
+                            .maxOfOrNull { it.receiptNumber } ?: 0L
+                        val nextReceiptNumber = maxOf(prefs.getLong("last_receipt_number", 0L), highestStoredReceipt) + 1L
+                        check(prefs.edit().putLong("last_receipt_number", nextReceiptNumber).commit()) {
+                            "تعذر حفظ رقم إيصال التحصيل التسلسلي"
+                        }
+                        nextReceiptNumber
+                    }
                 )
                 repository.insertPayment(payment)
                 selectedBill.value = updatedBill
