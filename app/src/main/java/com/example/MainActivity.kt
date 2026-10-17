@@ -383,7 +383,7 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToReadingReminders = { navController.navigate("reading_reminders") },
                                     onLogoutAllDevices = {
                                         viewModel.logout()
-                                        navController.navigate("login") {
+                                        navController.navigate("admin_password") {
                                             popUpTo(0) { inclusive = true }
                                         }
                                     }
