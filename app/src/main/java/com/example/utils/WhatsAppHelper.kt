@@ -75,6 +75,9 @@ object WhatsAppHelper {
 
     /** يشارك صورة PNG لإيصال الدفعة المحددة، مع رقم إيصال مستقل عن رقم فاتورة الاستهلاك. */
     fun sendCollectionReceipt(context: Context, payment: PaymentEntity, phone: String): Boolean {
+        // Validate and normalize the subscriber's number before opening WhatsApp.
+        // The jid extra asks WhatsApp to open the intended chat while keeping the receipt image attached.
+        val normalizedPhone = normalizeYemenPhone(phone) ?: return false
         val receiptText = buildString {
             appendLine("محطة العسل")
             appendLine("إيصال تحصيل")
@@ -97,6 +100,8 @@ object WhatsAppHelper {
                 type = "image/png"
                 putExtra(Intent.EXTRA_STREAM, imageUri)
                 putExtra(Intent.EXTRA_TEXT, receiptText)
+                // WhatsApp's jid format is the full international number without '+'.
+                putExtra("jid", "${normalizedPhone}@s.whatsapp.net")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             val whatsappIntent = shareIntent.clone() as Intent
