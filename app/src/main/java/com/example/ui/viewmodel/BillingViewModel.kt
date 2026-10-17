@@ -172,6 +172,66 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
 
     private val prefs = application.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
 
+    // كلمة مرور مدير النظام تُخزّن كبصمة PBKDF2 مع salt عشوائي، ولا تُحفظ كنص صريح.
+    private val adminPasswordPrefs = application.getSharedPreferences("admin_password_store", android.content.Context.MODE_PRIVATE)
+    val hasAdminPassword = MutableStateFlow(adminPasswordPrefs.contains("password_hash"))
+
+    fun setupAdminPassword(password: String, confirmation: String): Pair<Boolean, String> {
+        if (!adminDeviceSecurity.isAdminDevice()) {
+            return false to "هذا الجهاز غير معتمد كجهاز إدارة؛ لا يمكن إعداد كلمة مرور الإدارة عليه."
+        }
+        if (password.length < 8) return false to "كلمة المرور يجب أن تكون 8 أحرف على الأقل."
+        if (password != confirmation) return false to "كلمتا المرور غير متطابقتين."
+        if (adminPasswordPrefs.contains("password_hash")) return false to "تم إعداد كلمة مرور الإدارة مسبقاً."
+        return try {
+            val salt = java.security.SecureRandom().generateSeed(16)
+            val hash = deriveAdminPasswordHash(password, salt)
+            adminPasswordPrefs.edit()
+                .putString("password_salt", android.util.Base64.encodeToString(salt, android.util.Base64.NO_WRAP))
+                .putString("password_hash", android.util.Base64.encodeToString(hash, android.util.Base64.NO_WRAP))
+                .apply()
+            hasAdminPassword.value = true
+            true to "تم إنشاء كلمة مرور مدير النظام بنجاح."
+        } catch (_: Exception) {
+            false to "تعذر حفظ كلمة المرور. حاول مرة أخرى."
+        }
+    }
+
+    private fun deriveAdminPasswordHash(password: String, salt: ByteArray): ByteArray {
+        val spec = javax.crypto.spec.PBEKeySpec(password.toCharArray(), salt, 120_000, 256)
+        return try {
+            javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded
+        } finally {
+            spec.clearPassword()
+        }
+    }
+
+    suspend fun loginAdminWithPassword(password: String): Pair<Boolean, String> {
+        if (!adminDeviceSecurity.isAdminDevice()) {
+            return false to "تم رفض الدخول: هذا الجهاز غير معتمد كجهاز إدارة."
+        }
+        val saltText = adminPasswordPrefs.getString("password_salt", null)
+            ?: return false to "لم يتم إعداد كلمة مرور الإدارة بعد."
+        val expectedText = adminPasswordPrefs.getString("password_hash", null)
+            ?: return false to "لم يتم إعداد كلمة مرور الإدارة بعد."
+        return try {
+            val salt = android.util.Base64.decode(saltText, android.util.Base64.NO_WRAP)
+            val expected = android.util.Base64.decode(expectedText, android.util.Base64.NO_WRAP)
+            val actual = deriveAdminPasswordHash(password, salt)
+            if (!java.security.MessageDigest.isEqual(expected, actual)) {
+                false to "كلمة المرور غير صحيحة."
+            } else {
+                val adminKey = accessKeyRepository.getAllLocalAccessKeys()
+                    .firstOrNull { it.role.equals("ADMIN", ignoreCase = true) && it.active }
+                    ?: return false to "لم يتم العثور على حساب مدير نشط."
+                loginWithSecretKey(adminKey.secretKey)
+            }
+        } catch (_: Exception) {
+            false to "تعذر التحقق من كلمة المرور."
+        }
+    }
+
+
     val darkTheme = MutableStateFlow(prefs.getBoolean("setting_dark_theme", false))
 
     val language = MutableStateFlow(prefs.getString("setting_language", "العربية") ?: "العربية")
