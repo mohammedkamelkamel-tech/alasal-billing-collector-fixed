@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.UUID
 
 /**
  * تخزين مفاتيح الدخول محلياً. لا يعتمد على الإنترنت أو خدمة سحابية.
@@ -20,11 +21,10 @@ class LocalAccessKeyRepository(context: Context) {
     }
 
     private fun defaults(): List<AccessKey> = listOf(
-        // مفتاح الإدارة الأساسي موجود فقط كبيانات تهيئة على جهاز الإدارة.
-        // لا توجد مفاتيح محصل/محاسب افتراضية ثابتة؛ الإدارة هي التي تنشئها.
+        // يُنشأ مفتاح إداري عشوائي لكل تثبيت بدلاً من استخدام مفتاح سري ثابت معروف.
         AccessKey(
             id = "key_admin_001",
-            secretKey = "SEC-ADMIN-1234",
+            secretKey = "ADMIN-" + UUID.randomUUID().toString(),
             username = "مدير النظام",
             role = "ADMIN",
             permissions = PermissionCatalog.getDefaultAdminPermissions(),
@@ -37,7 +37,20 @@ class LocalAccessKeyRepository(context: Context) {
         val raw = prefs.getString("keys_json", null) ?: return defaults()
         return try {
             val arr = JSONArray(raw)
-            (0 until arr.length()).map { fromJson(arr.getJSONObject(it)) }
+            val loaded = (0 until arr.length()).map { fromJson(arr.getJSONObject(it)) }
+            // إبطال المفتاح الافتراضي القديم المعروف وترحيله إلى قيمة عشوائية، مع حفظ بقية المفاتيح كما هي.
+            val migrated = loaded.map { key ->
+                if (key.secretKey == "SEC-ADMIN-1234" && key.role.equals("ADMIN", ignoreCase = true)) {
+                    key.copy(secretKey = "ADMIN-" + UUID.randomUUID().toString())
+                } else key
+            }
+            if (migrated != loaded) {
+                prefs.edit().putString(
+                    "keys_json",
+                    JSONArray().apply { migrated.forEach { put(toJson(it)) } }.toString()
+                ).commit()
+            }
+            migrated
         } catch (_: Exception) {
             defaults()
         }
@@ -91,7 +104,7 @@ class LocalAccessKeyRepository(context: Context) {
         state.value.firstOrNull { it.secretKey.equals(secretKey.trim(), ignoreCase = true) }
 
     suspend fun saveAccessKey(key: AccessKey) {
-        val id = key.id.ifBlank { java.util.UUID.randomUUID().toString() }
+        val id = key.id.ifBlank { UUID.randomUUID().toString() }
         saveAll(state.value.filterNot { it.id == id } + key.copy(id = id))
     }
 
