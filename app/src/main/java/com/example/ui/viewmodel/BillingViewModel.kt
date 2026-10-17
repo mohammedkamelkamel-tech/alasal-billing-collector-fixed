@@ -321,15 +321,17 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
             val savedKey = prefs.getString("saved_secret_key", null)
             if (savedKey != null) {
                 val savedLocal = accessKeyRepository.getAccessKeyBySecret(savedKey)
-                // حماية إضافية: أي جلسة ADMIN محفوظة من إصدار قديم تُمسح فوراً
-                // على جهاز غير معتمد، قبل أن تظهر واجهة الإدارة ولو للحظات.
-                if (savedLocal?.role.equals("ADMIN", ignoreCase = true) && !adminDeviceSecurity.isAdminDevice()) {
+                // لا نستعيد جلسة المدير تلقائياً: يجب إدخال كلمة مرور الإدارة بعد كل تشغيل.
+                // تظل جلسات المحصلين قابلة للاستعادة كما كانت، وتبقى حماية جهاز الإدارة قائمة.
+                if (savedLocal?.role.equals("ADMIN", ignoreCase = true)) {
                     prefs.edit().remove("saved_secret_key").apply()
                     currentAccessKey.value = null
                     localNetworkSync.setSessionAccessKey(null)
                     localNetworkSync.stop()
-                } else {
+                } else if (savedLocal != null) {
                     loginWithSecretKey(savedKey)
+                } else {
+                    prefs.edit().remove("saved_secret_key").apply()
                 }
             }
         }
