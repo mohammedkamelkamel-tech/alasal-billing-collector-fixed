@@ -173,11 +173,35 @@ class MainActivity : ComponentActivity() {
                         AppWatermarkBackground()
                     NavHost(
                         navController = navController,
-                        startDestination = if (currentAccessKey == null) "login" else "home",
+                        startDestination = if (currentAccessKey != null) "home" else if (viewModel.hasAdminPassword.value) "admin_password" else "setup_admin_password",
                         modifier = Modifier.padding(
                             if (showTopBar || showBottomNav) innerPadding else PaddingValues(0.dp)
                         )
                     ) {
+                        composable("setup_admin_password") {
+                            AdminPasswordScreen(
+                                setupMode = true,
+                                onSetupPassword = { password, confirmation -> viewModel.setupAdminPassword(password, confirmation) },
+                                onLoginPassword = { password -> viewModel.loginAdminWithPassword(password) },
+                                onSuccess = {
+                                    navController.navigate("admin_password") { popUpTo("setup_admin_password") { inclusive = true } }
+                                },
+                                onCollectorsLogin = { navController.navigate("login") }
+                            )
+                        }
+
+                        composable("admin_password") {
+                            AdminPasswordScreen(
+                                setupMode = false,
+                                onSetupPassword = { password, confirmation -> viewModel.setupAdminPassword(password, confirmation) },
+                                onLoginPassword = { password -> viewModel.loginAdminWithPassword(password) },
+                                onSuccess = {
+                                    navController.navigate("home") { popUpTo("admin_password") { inclusive = true } }
+                                },
+                                onCollectorsLogin = { navController.navigate("login") }
+                            )
+                        }
+
                         composable("login") {
                             LoginScreen(
                                 onLoginWithKey = { keyInput -> viewModel.loginWithSecretKey(keyInput) },
